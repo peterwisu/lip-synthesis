@@ -22,6 +22,10 @@ logs/syncnet/*
 !*.md
 
 
+# ignore pyc cache 
+*.pyc
+
+
 
 
 
