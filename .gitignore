@@ -1,0 +1,25 @@
+
+# checkpoints
+checkpoints/front/*
+checkpoints/generator/*
+checkpoints/image2image/*
+checkpoints/syncnet/*
+
+# filelist (dataset) 
+filelists/*
+
+# results
+results/*
+temp/*
+dummy/*
+face_front/
+results.mp4 
+logs/generator/*
+logs/syncnet/*
+
+
+
+
+
+
+
