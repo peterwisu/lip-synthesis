@@ -18,6 +18,10 @@ logs/generator/*
 logs/syncnet/*
 
 
+# excluding all .md
+!*.md
+
+
 
 
 
