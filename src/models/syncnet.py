@@ -1,4 +1,3 @@
-
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -8,12 +7,13 @@ SyncNet version for Lip key point
 
 """
 class SyncNet(nn.Module):
-    def __init__(self, inp='2d',bilstm=True):
+    def __init__(self, end2end = False,bilstm=True):
         super(SyncNet,self).__init__()
         
         self.bilstm = bilstm
         self.au_hidden =  256
         self.lip_hidden = 128
+        self.end2end = end2end
         
          
         self.audio_encoder = nn.LSTM(input_size=80,
@@ -50,10 +50,11 @@ class SyncNet(nn.Module):
     
 
     def forward(self, audio, lip):
-
         
         audio =  audio.reshape(-1,18,80)
-        lip   =  lip.reshape(-1,5,40)
+        
+        if self.end2end :
+            lip   =  lip.reshape(-1,5,40)
       
         
         au_emb, _ = self.audio_encoder(audio)
@@ -62,14 +63,14 @@ class SyncNet(nn.Module):
 
         au_emb = au_emb[:,-1,:]
         lip_emb = lip_emb[:,-1,:]
-   
+
+    
 
         au = self.audio_fc(au_emb)
         lip = self.lip_fc(lip_emb)
 
         au = nn.functional.normalize(au, p=2, dim=1)
         lip = nn.functional.normalize(lip, p=2, dim=1)
-
         
         
         return au, lip
@@ -120,3 +121,4 @@ class Linear(nn.Module):
         else:
 
             return self.activation(outputs)
+

@@ -19,10 +19,10 @@ parser.add_argument('--checkpoint_path', help='Resume generator from this checkp
 # path of pretrain syncnet weight
 parser.add_argument('--checkpoint_syncnet_path', help="Checkpoint for pretrained SyncNet", default='./checkpoints/syncnet/syncnet_disc.pth' ,type=str)
 
-parser.add_argument('--apply_disc',help="Apply SyncNet to generator at epoch ", default=100000)
+parser.add_argument('--apply_disc',help="Apply SyncNet to generator at epoch ", default=0)
 
 """---------- Save name --------"""
-parser.add_argument('--save_name', help='name of a save', default="train_gen_for_inference", type=str)
+parser.add_argument('--save_name', help='name of a save', default="test", type=str)
 
 
 args = parser.parse_args()

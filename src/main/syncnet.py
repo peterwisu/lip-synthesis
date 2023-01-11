@@ -1,28 +1,17 @@
 
-import math
-from traceback import print_tb
-import warnings
 from os.path import dirname, join, basename, isfile
 from tqdm import tqdm
-
-import utils.audio as audio
 import torch
 from torch import nn
 from torch import optim
-import torch.backends.cudnn as cudnn
 from torch.utils import data as data_utils
 import numpy as np
-from glob import glob
-import pandas as pd
-import matplotlib.pyplot as plt
-import os, random, cv2, argparse
+import os
 from hparams import hparams
 from torch.nn import DataParallel
 from torch.utils.tensorboard import SummaryWriter
-
-# from dataset import SyncNet_Dataset
+from src.models.syncnet import SyncNet
 from src.dataset.syncnet import Dataset
-from src.models.cus_sync import ModSync
 from utils.wav2lip import save_checkpoint, load_checkpoint
 from utils.utils import save_logs, load_logs, get_accuracy
 from utils.plot import plot_comp, plot_roc, plot_cm , plot_single
@@ -87,7 +76,7 @@ class TrainSync():
          
          
         # SyncNet Model 
-        self.model = ModSync().to(device)
+        self.model = SyncNet().to(device)
         # optimizer 
         self.optimizer = optim.Adam([p for p in self.model.parameters() if p.requires_grad],
                            lr=hparams.syncnet_lr,
@@ -347,7 +336,7 @@ class TrainSync():
         Training Model 
         
         """
-        
+        print("Save name : {}".format(self.save_name))
         print("Using CUDA : {} ".format(use_cuda))
         
         if use_cuda: print ("Using {} GPU".format(torch.cuda.device_count())) 

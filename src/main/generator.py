@@ -11,8 +11,8 @@ import time
 from src.dataset.generator import Dataset
 from torch.utils import data as data_utils
 from utils.front import frontalize_landmarks
-from src.models.generator import LstmGen as Generator
-from src.models.cus_sync import ModSyncNet as SyncNet
+from src.models.lstmgen import LstmGen as Generator
+from src.models.syncnet import SyncNet
 from torch.utils.tensorboard import SummaryWriter
 from utils.plot import plot_compareLip, plot_visLip, plot_comp, plot_seqlip_comp
 from utils.wav2lip import load_checkpoint , save_checkpoint

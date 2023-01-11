@@ -4,7 +4,7 @@ import warnings
 from src.main.syncnet import TrainSync
 import os 
 from utils.utils import str2bool
-import torch
+from datetime import date 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
     
@@ -17,7 +17,7 @@ parser.add_argument("--checkpoint_dir", help="dir to save checkpoints for SyncNe
 
 parser.add_argument('--checkpoint_path', help="Resume from checkpoints or testing a model from checkpoints", default=None, type=str)
 
-parser.add_argument('--save_name', help="name of a save", default="syncnet_test_pretrain",type=str)
+parser.add_argument('--save_name', help="name of a save", default="test{}".format(date.today()),type=str)
 
 parser.add_argument('--do_train' , help="Train a mode or testing a model", default='True' , type=str2bool)
 

@@ -12,8 +12,7 @@ import subprocess
 import platform
 import os
 from src.models.image2image import ResUnetGenerator
-from src.models.generator import LstmGen as Lip_Gen
-#from src.models.cus_gen import Generator as Lip_Gen
+from src.models.lstmgen import LstmGen as Lip_Gen
 from utils.wav2lip import prepare_audio, prepare_video, load_checkpoint
 
 from utils.front import frontalize_landmarks

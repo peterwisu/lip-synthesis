@@ -7,18 +7,11 @@ from hparams import hparams
 import os
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-import time
-
 from src.dataset.end2end import Dataset
 from torch.utils import data as data_utils
 from utils.front import frontalize_landmarks
-
-from src.models.generator import LstmGen as Generator
-#from src.models.cus_gen import  Generator
-#from src.models.fl_syncnet import SyncNet_fl
-from src.models.end2end_sync import  SyncNet
-
-
+from src.models.lstmgen import LstmGen as Generator
+from src.models.syncnet import SyncNet
 from torch.utils.tensorboard import SummaryWriter
 from utils.plot import plot_compareLip, plot_visLip, plot_comp, plot_seqlip_comp
 from utils.wav2lip import load_checkpoint , save_checkpoint
@@ -28,7 +21,7 @@ use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
 
-class End2End():
+class TrainEnd2End():
     """
     
     """
@@ -75,7 +68,7 @@ class End2End():
         """ <------------------------------SyncNet Discriminator ------------------------------------->"""
         print("Loading SyncNet .......")  
         # load Syncnet 
-        self.syncnet = SyncNet().to(device=device)
+        self.syncnet = SyncNet(end2end=True).to(device=device)
 
         self.disc_optimizer = optim.SGD([params for params in self.syncnet.parameters() if params.requires_grad], lr=0.0001)
       
@@ -605,11 +598,11 @@ class End2End():
 
         
         #self.__vis_comp_graph__()
-        print("Start training SyncNet")
+        print("Start training END2END")
 
         self.__training_stage__()
 
-        print("Finish Trainig SyncNet")
+        print("Finish Trainig END2END")
 
         self.writer.close()
 

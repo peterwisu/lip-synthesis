@@ -10,10 +10,10 @@ LIP_FEATURES = 40
 AU_FEAT_SIZE = 128
 
 
-class Generator(nn.Module):
+class TransformerGenerator(nn.Module):
 
     def __init__ (self, hidden_size=256, in_size=80, dropout=0, lstm_size=AU_FEAT_SIZE, num_layers=3, num_window_frames=18, bidirectional=True ):
-        super(Generator, self).__init__()
+        super(TransformerGenerator, self).__init__()
 
         self.fc_in_features = 128#hidden_size * 2 if bidirectional else hidden_size
 
