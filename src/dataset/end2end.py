@@ -66,7 +66,7 @@ class Dataset(object):
 
             # check whether is facial landmark can be frontalize or not?
             try:
-                img = frontalize_landmarks(img[:,:2],front_weight)
+                img,_ = frontalize_landmarks(img[:,:2],front_weight)
 
             except Exception as e:
                 

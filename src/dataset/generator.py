@@ -66,7 +66,7 @@ class Dataset(object):
 
             # check whether is facial landmark can be frontalize or not?
             try:
-                img = frontalize_landmarks(img[:,:2],front_weight)
+                img, trans_info = frontalize_landmarks(img[:,:2],front_weight)
 
             except Exception as e:
                 
@@ -122,7 +122,6 @@ class Dataset(object):
     def __getitem__(self, idx):
 
         try: 
-            start = time.time()
             while 1:
 
                 idx = random.randint(0, len(self.all_videos) - 1)
@@ -191,9 +190,6 @@ class Dataset(object):
                 indiv_mels = torch.FloatTensor(indiv_mels).unsqueeze(1)
                 y = torch.FloatTensor(y[:,:, :2])
 
-                end= time.time()
-
-                print(end-start)
 
 
                 return x, indiv_mels, mel, y

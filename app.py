@@ -11,9 +11,9 @@ def func(video,audio,check):
 
     parser = argparse.ArgumentParser(description="File for running Inference")
 
-    parser.add_argument('--generator_checkpoint', type=str ,default='./checkpoints/generator/checkpoint_lip_fl_epoch000000014.pth')
+    parser.add_argument('--generator_checkpoint', type=str ,default='./checkpoints/generator/demo_front.pth')
 
-    parser.add_argument('--image2image_checkpoint', type=str, default='./src/models/ckpt/image2image.pth',required=False)
+    parser.add_argument('--image2image_checkpoint', type=str, default='./checkpoints/image2image/image2image.pth',required=False)
 
     parser.add_argument('--input_face', type=str,default=video, required=False)
 

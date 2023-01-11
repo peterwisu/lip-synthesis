@@ -1,3 +1,4 @@
+from matplotlib.patches import transforms
 import torch
 import torch.nn as nn
 from torch.nn.parallel import DataParallel
@@ -14,6 +15,9 @@ from src.models.image2image import ResUnetGenerator
 from src.models.generator import LstmGen as Lip_Gen
 #from src.models.cus_gen import Generator as Lip_Gen
 from utils.wav2lip import prepare_audio, prepare_video, load_checkpoint
+
+from utils.front import frontalize_landmarks
+import matplotlib.pyplot as plt
 
 use_cuda = torch.cuda.is_available()
 
@@ -62,8 +66,10 @@ class Inference():
                         use_cuda=True,
                         reset_optimizer=True,
                         pretrain=True)
-    
-    
+
+
+        # frontalization_weights
+        self.front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
     
  
     def __landmark_detection__(self,images, batch_size):
@@ -91,24 +97,35 @@ class Inference():
         fls = np.array(fls)
         """
         
-        while 1: 
 
-            fls = []
+        fls = []
+        transforms = []          
+        
+        for i in tqdm(range(0, len(images), batch_size)):
+
+            img = images[i:i+batch_size]          
+            fl_batch = detector.get_landmarks_from_batch(img)
             
-            for i in tqdm(range(0, len(images), batch_size)):
-
-                img = images[i:i+batch_size]          
-                fl = detector.get_landmarks_from_batch(img)
+            fl_batch = np.array(fl_batch)[:,:,:2] # take only 2D (x,y)
             
-                fls.append(fl)
+            fl = [] 
+            for idx in range(fl_batch.shape[0]):
 
-            break
+             
+                fl_inbatch, trans_info = frontalize_landmarks(fl_batch[idx],self.front_weight)
+                fl.append(fl_inbatch)
+                transforms.append(trans_info)
+            
+            fl = np.array(fl)
 
+            fls.append(fl)
+
+    
         fls = np.concatenate(fls, axis=0)
+        transforms = np.array(transforms)
 
-        fls = fls[:,:,:2] # tale only 2d
 
-        return  fls
+        return  fls, transforms
 
     def __keypoints2landmarks__(self,fls):
         """
@@ -130,20 +147,49 @@ class Inference():
 
         return frames
 
+
+    def __reverse_trans__(self,fl , tran):
+
+        scale = tran['scale']
+        translate = tran['translate']
+        rotate = tran['rotate']
+
+        rotate = np.linalg.inv(rotate)  # inverse tranformation matrix (for rotating face)
+
+        fl =  np.matmul(fl, rotate)  # reverse rotation
+        fl = fl *  scale # reverse scaling
+        fl = fl + translate # reverse translation
+        
+        return fl
+
+    def __reverse_trans_batch__ (self, fl , trans) :
+
+        trans_fls =[]
+       
+        for idx  in range(fl.shape[0]):
+
+            trans_fl = self.__reverse_trans__(fl[idx], trans[idx])
+
+            trans_fls.append(trans_fl)
+
+        trans_fls = np.array(trans_fls)
+              
+        return trans_fls
+
     
     def __data_generator__(self):
         """
         
         """
 
-        fl_batch , mel_batch, frame_batch = [],[],[]
+        fl_batch , trans_batch, mel_batch, frame_batch = [],[],[],[]
         
         frames = self.all_frames
         mels  = self.mel_chunk
         
         
         print("Detecting Facial Landmark ....")
-        fl_detected = self.__landmark_detection__(frames, self.fl_batchsize)
+        fl_detected, transformation = self.__landmark_detection__(frames, self.fl_batchsize)
         print("Finish detecting Facial Landmark !!!") 
 
         for i, m in enumerate(mels):
@@ -152,32 +198,36 @@ class Inference():
         
             frame_to_trans = frames[idx].copy()
             fl = fl_detected[idx].copy()
+            transforms = transformation[idx].copy()
             
             fl_batch.append(fl)
+            trans_batch.append(transforms)
             mel_batch.append(m)
             frame_batch.append(frame_to_trans)
 
             if len(fl_batch) >= self.gen_batchsize:
 
                 fl_batch = np.array(fl_batch)
+                trans_batch = np.array(trans_batch) # this might cause error by wrapping a dict in np
                 mel_batch = np.array(mel_batch)
                 mel_batch = np.reshape(mel_batch, [len(mel_batch), mel_batch.shape[1], mel_batch.shape[2],1])
                 frame_batch = np.array(frame_batch)
 
-                yield fl_batch, mel_batch, frame_batch
+                yield fl_batch, trans_batch, mel_batch, frame_batch
 
-                fl_batch, mel_batch, frame_batch = [], [], []
+                fl_batch, trans_batch, mel_batch, frame_batch = [], [], [], []
 
         if len(fl_batch) > 0 :
 
             fl_batch = np.array(fl_batch)
+            trans_batch = np.array(trans_batch) # this might cause error by wrapping a dict in np
             mel_batch = np.array(mel_batch)
             mel_batch = np.reshape(mel_batch, [len(mel_batch), mel_batch.shape[1], mel_batch.shape[2],1])
             frame_batch = np.array(frame_batch)
 
-            yield fl_batch, mel_batch, frame_batch
+            yield fl_batch, trans_batch, mel_batch, frame_batch
 
-            fl_batch, mel_batch, frame_batch = [], [], []
+            fl_batch, trans_batch, mel_batch, frame_batch = [], [], [], []
             
             
     def start(self):
@@ -191,7 +241,7 @@ class Inference():
         else :
             writer = cv2.VideoWriter('./temp/out.mp4', cv2.VideoWriter_fourcc(*'mjpg'), self.fps, (256,256))
         
-        for fl, mel, ref_frame  in self.data:
+        for fl, trans, mel, ref_frame  in self.data:
 
             # fl shape  (B, 68, 3)
             # mel shape (B, 80, 18, 1)
@@ -212,6 +262,9 @@ class Inference():
             
             out_fl = out_fl
             fl[:,48:,:] = out_fl
+
+
+            fl =  self.__reverse_trans_batch__(fl , trans)
             
             # plot a image of landmarks
             fl_image = self.__keypoints2landmarks__(fl)

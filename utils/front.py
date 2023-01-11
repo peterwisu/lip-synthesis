@@ -43,14 +43,14 @@ def frontalize_landmarks(landmarks, frontalization_weights):
     if type(landmarks) is list:
         landmarks = get_landmark_matrix(landmarks)
     
-    landmarks_standard = get_procrustes(landmarks, template_landmarks=None)
+    landmarks_standard, trans_info = get_procrustes(landmarks, template_landmarks=None)
     landmark_vector = np.hstack(
         (landmarks_standard[:,0].T, landmarks_standard[:,1].T, 1)
         )  # add interception
     landmarks_frontal = np.matmul(landmark_vector, frontalization_weights)
     landmarks_frontal = get_landmark_matrix(landmarks_frontal)
     
-    return landmarks_frontal
+    return landmarks_frontal , trans_info
 
 
 
@@ -125,11 +125,16 @@ def get_procrustes(
     '''
     
     landmarks_standard = landmarks.copy()
+
+    # added line for this project
+    trans_info = {}
     
     # translation
     if translate is True:
         landmark_mean = np.mean(landmarks, axis=0)
         landmarks_standard = landmarks_standard - landmark_mean
+
+        trans_info['translate'] = landmark_mean
     
     # scale
     if scale is True:
@@ -137,6 +142,8 @@ def get_procrustes(
             np.mean(np.sum(landmarks_standard**2, axis=1))
             )
         landmarks_standard = landmarks_standard / landmark_scale
+
+        trans_info['scale'] = landmark_scale
     
     
     if rotate is True:
@@ -158,6 +165,8 @@ def get_procrustes(
             [math.sin(a), math.cos(a)]
             ])  # rotation matrix
         landmarks_standard = np.matmul(landmarks_standard, R)
+        
+        trans_info['rotate'] = R
     
     '''
     adjusting facial parts to a tamplate face
@@ -201,7 +210,7 @@ def get_procrustes(
         displacement = anchorpoint_template - anchorpoint_input
         landmarks_standard[:17,:] += displacement
         
-    return landmarks_standard
+    return landmarks_standard, trans_info
 
 
 

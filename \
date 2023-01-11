@@ -69,12 +69,22 @@ class LstmGen(nn.Module):
             # cell : (num_lay * 2 , B , hidden_size)
             """
 
-            lstm_out = lstm_out.squeeze(0)
+            print(lstm_out.shape)
+            print(lip.shape)
 
             # concat feature with lip
-            concat_input =torch.cat((lstm_out,lip),dim=1)
+            concat_input =torch.cat((lstm_out,lip),dim=2)
+
+            print(concat_input.shape)
+
+            exit()
+
+            concat_input = concat_input.reshape(-1,concat_input.size(2)) # (B * seq , 1064)
             
             outs = self.feed(concat_input)
+
+            outs = outs.reshape(seq_len, -1)
+
 
         
         else:

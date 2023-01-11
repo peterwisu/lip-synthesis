@@ -183,7 +183,7 @@ class Dataset(torch.utils.data.Dataset):
                 rfl = np.loadtxt(fname)[:,:2]
                                 
                 try :
-                    fl = frontalize_landmarks(rfl,front_weight)
+                    fl, _ = frontalize_landmarks(rfl,front_weight)
 
                 except Exception as e :
                     

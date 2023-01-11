@@ -8,24 +8,15 @@ import os
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import time
-
 from src.dataset.generator import Dataset
-
 from torch.utils import data as data_utils
 from utils.front import frontalize_landmarks
-
 from src.models.generator import LstmGen as Generator
-#from src.models.cus_gen import  Generator
-#from src.models.fl_syncnet import SyncNet_fl
 from src.models.cus_sync import ModSyncNet as SyncNet
-
-
 from torch.utils.tensorboard import SummaryWriter
 from utils.plot import plot_compareLip, plot_visLip, plot_comp, plot_seqlip_comp
 from utils.wav2lip import load_checkpoint , save_checkpoint
 from utils.utils import save_logs,load_logs , norm_lip2d
-
-
 
 
 use_cuda = torch.cuda.is_available()
@@ -34,9 +25,9 @@ device = torch.device("cuda" if use_cuda else "cpu")
 print(device)
 
 
-class Generator():
+class TrainGenerator():
     """
-    
+       
     """
     
     
@@ -167,16 +158,13 @@ class Generator():
         self.recon_coeff = 0.5
 
         self.sync_coeff = 0.5
+                            
 
-#        self.writer.add_hparams(
-#                {'lr': self.lr ,
-#                 'batch_size': self.batch_size,
-#                 'recon_coeff': self.recon_coeff,
-#                 'sync_coeff': self.sync_coeff,
-#                 "apply_disc": self.apply_disc}
-#                )
-#
-#
+
+        """ Evaluation video"""
+
+
+        self.audio = None 
 
     def __frontal_lip__(self,gen_lip,gt_face):
 
@@ -196,7 +184,7 @@ class Generator():
             for s_idx in range(fl.shape[1]):
                 
                 try:
-                    frontal = frontalize_landmarks(fl[b_idx, s_idx], self.front_weight) 
+                    frontal, _ = frontalize_landmarks(fl[b_idx, s_idx], self.front_weight) 
 
                 except Exception as e : 
 
@@ -334,8 +322,6 @@ class Generator():
         for (con_fl, seq_mels, mel, gt_fl) in prog_bar:
 
             
-            torch.cuda.synchronize()
-            start = time.time()
             self.optimizer.zero_grad()
             self.generator.train()
             
@@ -365,9 +351,6 @@ class Generator():
             loss.backward()
             self.optimizer.step()
 
-            torch.cuda.synchronize()
-            end = time.time()
-            #print(end-start)
         
 
             # display a loss before multiply to coefficent
@@ -623,6 +606,18 @@ class Generator():
     
         
         return seq_fig
+
+
+    def __vis_vdo__ (self):
+
+
+         
+
+        
+
+        return None 
+
+
 
         
 

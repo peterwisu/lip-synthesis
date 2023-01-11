@@ -171,7 +171,7 @@ class End2End():
             for s_idx in range(fl.shape[1]):
                 
                 try:
-                    frontal = frontalize_landmarks(fl[b_idx, s_idx], self.front_weight) 
+                    frontal, _ = frontalize_landmarks(fl[b_idx, s_idx], self.front_weight) 
 
                 except Exception as e : 
 
