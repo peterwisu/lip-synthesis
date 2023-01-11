@@ -1,4 +1,4 @@
-
+# Inference model
 
 import argparse
 from src.main.inference import Inference
