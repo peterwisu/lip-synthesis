@@ -6,7 +6,7 @@ import os
 
 parser = argparse.ArgumentParser(description="File for running Inference")
 
-parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='./checkpoints/end2end/demo_end2end.pth')
+parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='./checkpoints/generator/demo_front.pth')
 
 parser.add_argument('--image2image_checkpoint', type=str, help="File path for Image2Image Translation model checkpoint weigths", default='./checkpoints/image2image/image2image.pth',required=False)
 

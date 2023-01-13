@@ -17,34 +17,63 @@ parser.add_argument("--checkpoint_dir", help="dir to save checkpoints for SyncNe
 
 parser.add_argument('--checkpoint_path', help="Resume from checkpoints or testing a model from checkpoints", default=None, type=str)
 
-parser.add_argument('--save_name', help="name of a save", default="test{}".format(date.today()),type=str)
+parser.add_argument('--save_name', help="name of a save", default="test".format(date.today()),type=str)
 
 parser.add_argument('--do_train' , help="Train a mode or testing a model", default='True' , type=str2bool)
 
 
 args = parser.parse_args()
 
+def main():
+
+    
 
 
-model = TrainSync(args=args)
+    if args.do_train :
+        
+        model.start_training()
+        
+    else:
+        
+        if args.do_train :
+            if not os.path.exists(args.data_root):
+                raise ValueError("Data root  does not exist")
+           
+            if args.checkpoint_path is None:
+                
+                raise ValueError("Required the path of model's checkpoint for Testing model --checkpoint_path")
+            
+            if not os.path.exists(args.checkpoint_path):
+                
+                raise ValueError("Give path for model checkpoint does not exists")
+
+            if args.checkpoint_dir is None:
+
+                raise ValueError("Please provide a checkpoint_dir")
+
+             # if create checkpoint dir if it does not exist
+            if not os.path.exists(args.checkpoint_dir):
+                os.mkdir(args.checkpoint_dir)
 
 
-if args.do_train :
-    
-    model.start_training()
-    
-else:
-    
-    if args.checkpoint_path is None:
+            model = TrainSync(args=args)
+            model.start_testing()
+
+        else : 
+     
+            if args.checkpoint_path is None:
+                
+                raise ValueError("Required the path of model's checkpoint for Testing model --checkpoint_path")
+            
+            if not os.path.exists(args.checkpoint_path):
+                
+                raise ValueError("Give path for model checkpoint does not exists")
+
         
-        raise ValueError("Required the path of model's checkpoint for Testing model --checkpoint_path")
-    
-    if not os.path.exists(args.checkpoint_path):
-        
-        raise ValueError("Give path for model checkpoint does not exists")
-    
-    model.start_testing()
+
+if __name__  == "__main__":
+
+    main()
         
         
-    
     

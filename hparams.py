@@ -31,25 +31,22 @@ class HParams:
 
 # Default hyperparameters
 hparams = HParams(
+
+	###### Audio preprocessing  #############
 	num_mels=80,  # Number of mel-spectrogram channels and local conditioning dimensionality
 	#  network
 	rescale=True,  # Whether to rescale audio prior to preprocessing
-	rescaling_max=0.9,  # Rescaling value
-	
+	rescaling_max=0.9,  # Rescaling value	
 	# Use LWS (https://github.com/Jonathan-LeRoux/lws) for STFT and phase reconstruction
 	# It"s preferred to set True to use with https://github.com/r9y9/wavenet_vocoder
 	# Does not work if n_ffit is not multiple of hop_size!!
 	use_lws=False,
 
-
-
-	n_fft=800,  # Extra window size is filled with 0 paddings to match this parameter
+	n_fft=800,  # Extr window size is filled with 0 paddings to match this parameter
 	hop_size=200,  # For 16000Hz, 200 = 12.5 ms (0.0125 * sample_rate)
 	win_size=800,  # For 16000Hz, 800 = 50 ms (If None, win_size = n_fft) (0.05 * sample_rate)
 	sample_rate=16000,  # 16000Hz (corresponding to librispeech) (sox --i <filename>)
-	
 	frame_shift_ms=None,  # Can replace hop_size parameter. (Recommended: 12.5)
-	
 	# Mel and Linear spectrograms normalization/scaling and clipping
 	signal_normalization=True,
 	# Whether to normalize mel spectrograms to some predefined range (following below parameters)
@@ -66,7 +63,6 @@ hparams = HParams(
 	# levels. Also allows for better G&L phase reconstruction)
 	preemphasize=True,  # whether to apply filter
 	preemphasis=0.97,  # filter coefficient.
-	
 	# Limits
 	min_level_db=-100,
 	ref_level_db=20,
@@ -75,26 +71,36 @@ hparams = HParams(
 	# test depending on dataset. Pitch info: male~[65, 260], female~[100, 525])
 	fmax=7600,  # To be increased/reduced depending on data.
 
+
+
+
 	###################### Our training parameters #################################
-	img_size=96,
-	fps=25,
-	
-	batch_size=32,
-	initial_learning_rate=1e-4,
-	nepochs=100,  ### ctrl + c, stop whenever eval loss is consistently greater than train loss for ~10 epochs
-	num_workers=8,
-	checkpoint_interval=3000,
-	eval_interval=3000,
-    save_optimizer_state=True,
+	save_optimizer_state=True,
+	########### Dataset  & Dataloder  #########
+	fps = 25, 
+	num_workers =8,
+	window_size = 18,
+	window_step = 5,
+	########## SyncNet hyperparameters ###############
+	syncnet_batch_size = 32,
+	syncnet_lr = 1e-4,
+	syncnet_nepochs = 100,
+	######### Generator hyperparameters ##############
+	gen_batch_size = 32,
+	gen_lr = 1e-4,
+	gen_nepochs = 100,
+	gen_apply_disc =100000, # apply sycnet discrimiantor at which epochs? 
+	gen_recon_coeff = 0.5,
+	gen_sync_coeff = 0.5,
+	######### End2End hyperparameters ################
+	e2e_batch_size = 32,
+	e2e_gen_lr = 1e-4,
+	e2e_disc_lr = 1e-5, # refer to syncnet_lr for End2End training 
+	e2e_nepochs = 100,
+	e2e_apply_disc = 0, #  apply sycnet discrimiantor at which epochs? 
+	e2e_recon_coeff = 0.7,
+	e2e_sync_coeff = 0.3
 
-    syncnet_wt=0.0, # is initially zero, will be set automatically to 0.03 later. Leads to faster convergence. 
-	syncnet_batch_size=64, #32 for lstm
-	syncnet_lr=1e-2,
-	syncnet_eval_interval=10000,
-	syncnet_checkpoint_interval=10000,
-
-	disc_wt=0.07,
-	disc_initial_learning_rate=1e-4,
 )
 
 

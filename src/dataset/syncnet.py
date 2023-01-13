@@ -28,7 +28,7 @@ import warnings
 syncnet_T = 5
 syncnet_mel_step_size = 18
 
-front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
+
 
 
 
@@ -37,6 +37,8 @@ class Dataset(torch.utils.data.Dataset):
     def __init__(self, split, args):
 
         self.all_videos = get_fl_list(args.data_root, split)
+
+        self.front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
 
     def get_frame_id(self, frame):
 
@@ -183,7 +185,7 @@ class Dataset(torch.utils.data.Dataset):
                 rfl = np.loadtxt(fname)[:,:2]
                                 
                 try :
-                    fl, _ = frontalize_landmarks(rfl,front_weight)
+                    fl, _ = frontalize_landmarks(rfl,self.front_weight)
 
                 except Exception as e :
                     

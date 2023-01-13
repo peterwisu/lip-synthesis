@@ -33,7 +33,7 @@ class TrainSync():
         self.checkpoint_path = args.checkpoint_path
         self.batch_size = hparams.syncnet_batch_size
         self.global_epoch = 0
-        self.nepochs = hparams.nepochs
+        self.nepochs = hparams.syncnet_nepochs
         self.do_train  = args.do_train
         
         

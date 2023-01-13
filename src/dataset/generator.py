@@ -29,17 +29,12 @@ syncnet_T = 5
 syncnet_mel_step_size = 18
 
 
-front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
-
-
 class Dataset(object):
     def __init__(self, split, args):
 
         self.split = split
-        if split == 'preview':
-            print('Preview Stage')
-        else:
-            self.all_videos = get_fl_list(args.data_root, split)
+        self.front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
+        self.all_videos = get_fl_list(args.data_root, split)
 
     def get_frame_id(self, frame):
         return int(basename(frame).split('.')[0])
@@ -61,22 +56,20 @@ class Dataset(object):
         window = []
         for fname in window_fnames:
             
-            # img = cv2.imread(fname)
-            img = np.loadtxt(fname)
+            fl = np.loadtxt(fname) #  load facial landmark at that particular frame
 
             # check whether is facial landmark can be frontalize or not?
             try:
-                img, trans_info = frontalize_landmarks(img[:,:2],front_weight)
+                fl, _  = frontalize_landmarks(fl[:,:2],self.front_weight)
 
             except Exception as e:
                 
-                #print('data_loader',e) 
-                img = None
+                fl = None
             
-            if img is None:
+            if fl is None:
                 return None
 
-            window.append(img)
+            window.append(fl)
 
         return window
 
@@ -108,101 +101,73 @@ class Dataset(object):
 
         return mels
 
-    def prepare_window(self, window):
-
-        # 3 x T x H x W
-        x = np.asarray(window) / 255.
-        x = np.transpose(x, (3, 0, 1, 2))
-
-        return x
-
     def __len__(self):
         return len(self.all_videos)
 
     def __getitem__(self, idx):
 
-        try: 
-            while 1:
+        
+        while 1:
 
-                idx = random.randint(0, len(self.all_videos) - 1)
-                vidname = self.all_videos[idx]
+            idx = random.randint(0, len(self.all_videos) - 1)
+            vidname = self.all_videos[idx]
 
-                self.vidname=vidname
+            self.vidname=vidname
 
-            
-                img_names = list(glob(join(vidname, '*.txt')))
-            
-                if len(img_names) <= 3 * syncnet_T:
-                    continue
+        
+            img_names = list(glob(join(vidname, '*.txt')))
+        
+            if len(img_names) <= 3 * syncnet_T:
+                continue
 
-                img_name = random.choice(img_names)
+            img_name = random.choice(img_names)
+            wrong_img_name = random.choice(img_names)
+            while wrong_img_name == img_name:
                 wrong_img_name = random.choice(img_names)
-                while wrong_img_name == img_name:
-                    wrong_img_name = random.choice(img_names)
 
-                window_fnames = self.get_window(img_name)
-                wrong_window_fnames = self.get_window(wrong_img_name)
-                if window_fnames is None or wrong_window_fnames is None:
-                    continue
+            window_fnames = self.get_window(img_name)
+            wrong_window_fnames = self.get_window(wrong_img_name)
+            if window_fnames is None or wrong_window_fnames is None:
+                continue
 
-                window = self.read_window(window_fnames)
-                if window is None:
-                    continue
+            window = self.read_window(window_fnames)
+            if window is None:
+                continue
 
-                wrong_window = self.read_window(wrong_window_fnames)
-                if wrong_window is None:
-                    continue
+            wrong_window = self.read_window(wrong_window_fnames)
+            if wrong_window is None:
+                continue
 
-                try:
-                    wavpath = join(vidname, "audio.wav")
-                    wav = audio.load_wav(wavpath, hparams.sample_rate)
-
-                    orig_mel = audio.melspectrogram(wav).T
-                except Exception as e:
-                    continue
-
-                mel = self.crop_audio_window(orig_mel.copy(), img_name)
-
-                if mel.shape[0] != syncnet_mel_step_size:
-
-                    continue
-
-                indiv_mels = self.get_segmented_mels(orig_mel.copy(), img_name)
-                if indiv_mels is None:
-
-                    continue
-
-                # window = self.prepare_window(window)
-                y = np.array(window.copy())
-                # window[:, :, window.shape[2] // 2:] = 0.
-
-                # wrong_window = self.prepare_window(wrong_window)
-
-                x = np.concatenate([window, wrong_window], axis=0)
-                
-                # testing 
-                x = np.array(wrong_window)
-                x = torch.FloatTensor(x[:, :, :2])
-                
-                x =  [x[0] for i in range(x.size(0))] 
-                x =  torch.stack(x , dim=0)
-                mel = torch.FloatTensor(mel.T).unsqueeze(0)
-                indiv_mels = torch.FloatTensor(indiv_mels).unsqueeze(1)
-                y = torch.FloatTensor(y[:,:, :2])
-
-
-
-                return x, indiv_mels, mel, y
-
-        except KeyboardInterrupt:
-            # Debug missing files that cause dataloder to get stuck
-            print('Interrupted')
             try:
-                print(self.vidname)
-                sys.exit(0)
-            except SystemExit:
-                print(self.vidname)
-                os._exit(0)
+                wavpath = join(vidname, "audio.wav")
+                wav = audio.load_wav(wavpath, hparams.sample_rate)
 
+                orig_mel = audio.melspectrogram(wav).T
+            except Exception as e:
+                continue
 
+            mel = self.crop_audio_window(orig_mel.copy(), img_name)
+
+            if mel.shape[0] != syncnet_mel_step_size:
+
+                continue
+
+            indiv_mels = self.get_segmented_mels(orig_mel.copy(), img_name)
+            if indiv_mels is None:
+
+                continue
+
+            y = np.array(window.copy())
+
+            x = np.array(wrong_window)
+            x = torch.FloatTensor(x[:, :, :2]) 
+            x =  [x[0] for i in range(x.size(0))] 
+            x =  torch.stack(x , dim=0)
+            mel = torch.FloatTensor(mel.T).unsqueeze(0)
+            indiv_mels = torch.FloatTensor(indiv_mels).unsqueeze(1)
+            y = torch.FloatTensor(y[:,:, :2])
+
+            return x, indiv_mels, mel, y
+
+   
 

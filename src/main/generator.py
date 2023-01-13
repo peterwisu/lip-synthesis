@@ -22,7 +22,6 @@ from utils.utils import save_logs,load_logs , norm_lip2d
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
-print(device)
 
 
 class TrainGenerator():
@@ -39,15 +38,18 @@ class TrainGenerator():
         self.checkpoint_dir = args.checkpoint_dir
         self.checkpoint_path = args.checkpoint_path
         self.ckpt_syncnet_path = args.checkpoint_syncnet_path
-        self.batch_size = hparams.batch_size
-        self.apply_disc = args.apply_disc
+        self.batch_size = hparams.gen_batch_size
+        self.apply_disc = hparams.gen_apply_disc
         self.global_epoch = 0
-        self.nepochs = hparams.nepochs
-        self.lr = 0.0001
+        self.nepochs = hparams.gen_nepochs
+        self.lr =   hparams.gen_lr# 0.0001
+
+        self.recon_coeff = hparams.gen_recon_coeff
+        self.sync_coeff = hparams.gen_sync_coeff
+        # frontalize weight
+        self.front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
+
         
-        # if create checkpoint dir if it does not exist
-        if not os.path.exists(self.checkpoint_dir):
-            os.mkdir(self.checkpoint_dir)
             
         # Tensorboard
         self.writer = SummaryWriter("../tensorboard/{}".format(self.save_name))
@@ -73,23 +75,26 @@ class TrainGenerator():
 
 
         """ <------------------------------SyncNet ------------------------------------->"""
-        print("Loading SyncNet .......")  
-        # load Syncnet 
-        self.syncnet = SyncNet().to(device=device)
-        # load Syncnet checkpoint
-        self.syncnet = load_checkpoint(path=self.ckpt_syncnet_path,
-                                       model=self.syncnet,
-                                       optimizer=None,
-                                       use_cuda=use_cuda,
-                                       reset_optimizer=True,
-                                       pretrain=True)
-        self.syncnet.to(device=device)
-        self.syncnet.eval() 
-        # frontalize weight
-        self.front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
+        if self.ckpt_syncnet_path is not None:
+            print("Loading SyncNet .......")  
+            # load Syncnet 
+            self.syncnet = SyncNet().to(device=device)
+            # load Syncnet checkpoint
+            self.syncnet = load_checkpoint(path=self.ckpt_syncnet_path,
+                                           model=self.syncnet,
+                                           optimizer=None,
+                                           use_cuda=use_cuda,
+                                           reset_optimizer=True,
+                                           pretrain=True)
+            self.syncnet.to(device=device)
+            self.syncnet.eval() 
+               
+            print("Finish loading Syncnet !!")
 
-        
-        print("Finish loading Syncnet !!")
+        else:
+
+            print("No SyncNet ckpt provided, Not loading SyncNet from checkpoint")
+            self.apply_disc = 100000000000000
 
 
 
@@ -155,9 +160,6 @@ class TrainGenerator():
         # chosen reconstruction loss
         self.recon_loss = self.l1_smooth
 
-        self.recon_coeff = 0.5
-
-        self.sync_coeff = 0.5
                             
 
 

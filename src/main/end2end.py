@@ -7,7 +7,7 @@ from hparams import hparams
 import os
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from src.dataset.end2end import Dataset
+from src.dataset.generator import Dataset
 from torch.utils import data as data_utils
 from utils.front import frontalize_landmarks
 from src.models.lstmgen import LstmGen as Generator
@@ -34,15 +34,19 @@ class TrainEnd2End():
         self.save_name  = args.save_name
         self.checkpoint_dir = args.checkpoint_dir
         self.checkpoint_path = args.checkpoint_path
-        self.batch_size = hparams.batch_size
+        self.batch_size = hparams.e2e_batch_size
         self.global_epoch = 0
-        self.nepochs = hparams.nepochs
-        self.apply_disc = args.apply_disc
+        self.nepochs = hparams.e2e_nepochs
+        self.apply_disc = hparams.e2e_apply_disc
+        self.sync_coeff = hparams.e2e_sync_coeff
+        self.recon_coeff = hparams.e2e_recon_coeff
+        self.gen_lr = hparams.e2e_gen_lr 
+        self.disc_lr = hparams.e2e_disc_lr
+
+
+
         
-        # if create checkpoint dir if it does not exist
-        if not os.path.exists(self.checkpoint_dir):
-            os.mkdir(self.checkpoint_dir)
-            
+           
         # Tensorboard
         self.writer = SummaryWriter("../tensorboard/{}".format(self.save_name))
         
@@ -70,7 +74,7 @@ class TrainEnd2End():
         # load Syncnet 
         self.syncnet = SyncNet(end2end=True).to(device=device)
 
-        self.disc_optimizer = optim.SGD([params for params in self.syncnet.parameters() if params.requires_grad], lr=0.0001)
+        self.disc_optimizer = optim.SGD([params for params in self.syncnet.parameters() if params.requires_grad], lr=self.disc_lr)
       
         # frontalize weight
         self.front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
@@ -85,7 +89,7 @@ class TrainEnd2End():
         # load lip generator 
         self.generator  = Generator().to(device=device)
         
-        self.gen_optimizer = optim.Adam([params for params in self.generator.parameters() if params.requires_grad], lr=0.0001)
+        self.gen_optimizer = optim.Adam([params for params in self.generator.parameters() if params.requires_grad], lr=self.gen_lr)
 
         # load checkpoint if the path is given
         self.continue_ckpt = False
@@ -140,11 +144,6 @@ class TrainEnd2End():
 
         # chosen reconstruction loss
         self.recon_loss = self.l1_smooth
-
-        self.sync_coeff = 0.3
-
-        self.recon_coeff =0.7
-
 
     def __frontal_lip__(self,gen_lip,gt_face):
 

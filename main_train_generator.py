@@ -19,19 +19,38 @@ parser.add_argument('--checkpoint_path', help='Resume generator from this checkp
 # path of pretrain syncnet weight
 parser.add_argument('--checkpoint_syncnet_path', help="Checkpoint for pretrained SyncNet", default='./checkpoints/syncnet/syncnet_disc.pth' ,type=str)
 
-parser.add_argument('--apply_disc',help="Apply SyncNet to generator at epoch ", default=0)
-
 """---------- Save name --------"""
-parser.add_argument('--save_name', help='name of a save', default="TO_show_frontal_lstm_gen_with_disc_0", type=str)
-
+parser.add_argument('--save_name', help='name of a save', default="test", type=str)
 
 args = parser.parse_args()
 
 
 def main():
+
+    if not os.path.exists(args.data_root):
+        raise ValueError("Data root  does not exist")
+
+    if args.checkpoint_path is not None and not os.path.exists(args.checkpoint_path):
+
+        raise ValueError("Checkpoint for  Generator does not exists")
+
+    if args.save_name is None:
+
+        raise ValueError('Please provide a save name')
+
+    if args.checkpoint_dir is None:
+
+        raise ValueError("Please provide a checkpoint_dir")
+
      # if create checkpoint dir if it does not exist
     if not os.path.exists(args.checkpoint_dir):
         os.mkdir(args.checkpoint_dir)
+
+    if args.checkpoint_syncnet_path  is not None and not os.path.exists(args.checkpoint_syncnet_path):
+
+        raise ValueError("Given Syncnet checkpoint does not exist")
+
+
     model = TrainGenerator(args=args)
 
     model.start_training()
