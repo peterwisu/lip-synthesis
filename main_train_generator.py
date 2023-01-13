@@ -22,7 +22,7 @@ parser.add_argument('--checkpoint_syncnet_path', help="Checkpoint for pretrained
 parser.add_argument('--apply_disc',help="Apply SyncNet to generator at epoch ", default=0)
 
 """---------- Save name --------"""
-parser.add_argument('--save_name', help='name of a save', default="test", type=str)
+parser.add_argument('--save_name', help='name of a save', default="TO_show_frontal_lstm_gen_with_disc_0", type=str)
 
 
 args = parser.parse_args()

@@ -11,16 +11,16 @@ parser = argparse.ArgumentParser(description='Code for training a lip sync gener
 parser.add_argument("--data_root", help="Root folder of the preprocessed LRS2 dataset", default='/home/peter/Peter/audio-visual/dataset/lrs2_main_fl_256_full_face_prepro/', type=str)
 
 """ --------- Generator --------"""
-parser.add_argument('--checkpoint_dir', help='Save checkpoints to this directory', default='./checkpoints/generator/', type=str)
+parser.add_argument('--checkpoint_dir', help='Save checkpoints to this directory', default='./checkpoints/end2end/', type=str)
 parser.add_argument('--checkpoint_path', help='Resume generator from this checkpoints', default=None, type=str)
 
 """---------- SyncNet ----------"""
 # path of pretrain syncnet weight
-parser.add_argument('--checkpoint_syncnet_path', help="Checkpoint for pretrained SyncNet", default='./src/models/ckpt/1361_sync.pth' ,type=str)
+#parser.add_argument('--checkpoint_syncnet_path', help="Checkpoint for pretrained SyncNet", default='./src/models/ckpt/1361_sync.pth' ,type=str)
 parser.add_argument('--apply_disc',help="Apply discriminator at epoch ", default=0)
 
 """---------- Save name --------"""
-parser.add_argument('--save_name', help='name of a save', default="test", type=str)
+parser.add_argument('--save_name', help='name of a save', default="TO_showing_inmeeting_gen_end2end", type=str)
 
 
 args = parser.parse_args()

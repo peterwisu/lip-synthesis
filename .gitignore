@@ -4,6 +4,7 @@ checkpoints/front/*
 checkpoints/generator/*
 checkpoints/image2image/*
 checkpoints/syncnet/*
+checkpoints/end2end/*
 
 # filelist (dataset) 
 filelists/*
@@ -22,8 +23,10 @@ logs/syncnet/*
 !*.md
 
 
-# ignore pyc cache 
+# ignore 
 *.pyc
+*.mp4
+*.pth
 
 
 

@@ -581,7 +581,7 @@ class TrainEnd2End():
             self.__update_logs__(cur_train_gen_loss, cur_vali_gen_loss,  cur_train_recon_loss,  cur_vali_recon_loss, cur_train_sync_loss, cur_vali_sync_loss, cur_train_disc_loss, cur_vali_disc_loss, com_fig, com_seq_fig)
 
             # save checkpoint
-            #save_checkpoint(self.generator, self.optimizer, self.checkpoint_dir, self.global_epoch)
+            save_checkpoint(self.generator, self.gen_optimizer, self.checkpoint_dir, self.global_epoch)
 
             self.global_epoch +=1
 
