@@ -15,7 +15,11 @@ from src.models.syncnet import SyncNet
 from torch.utils.tensorboard import SummaryWriter
 from utils.plot import plot_compareLip, plot_visLip, plot_comp, plot_seqlip_comp
 from utils.wav2lip import load_checkpoint , save_checkpoint
-from utils.utils import save_logs,load_logs , norm_lip2d
+from utils.utils import save_logs,load_logs 
+from utils.loss  import CosineBCELoss
+
+
+
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
@@ -42,10 +46,11 @@ class TrainEnd2End():
         self.recon_coeff = hparams.e2e_recon_coeff
         self.gen_lr = hparams.e2e_gen_lr 
         self.disc_lr = hparams.e2e_disc_lr
+        self.pretrain = args.pretrain_syncnet
+        self.pretrain_path = args.pretrain_syncnet_path
 
+        self.checkpoint_interval =  args.checkpoint_interval
 
-
-        
            
         # Tensorboard
         self.writer = SummaryWriter("../tensorboard/{}".format(self.save_name))
@@ -70,14 +75,32 @@ class TrainEnd2End():
 
 
         """ <------------------------------SyncNet Discriminator ------------------------------------->"""
-        print("Loading SyncNet .......")  
         # load Syncnet 
         self.syncnet = SyncNet(end2end=True).to(device=device)
+        
+        #check if using pretrain Discriminator
+        if self.pretrain:
+            print("######################")
+            print("Using Pretrain Syncnet")
 
-        self.disc_optimizer = optim.SGD([params for params in self.syncnet.parameters() if params.requires_grad], lr=self.disc_lr)
-      
-        # frontalize weight
-        self.front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
+            self.syncnet = load_checkpoint(path=self.pretrain_path,
+                                           model=self.syncnet,
+                                           optimizer=None,
+                                           use_cuda=use_cuda,
+                                           reset_optimizer=True,
+                                           pretrain=True
+                                           )
+            self.syncnet.to(device)
+            #self.syncnet.eval()
+
+            
+            
+        else:
+
+            print("###########################")
+            print("Not using pretrain Syncnet")
+
+            self.disc_optimizer = optim.SGD([params for params in self.syncnet.parameters() if params.requires_grad], lr=self.disc_lr)
 
         
         print("Finish loading Syncnet !!")
@@ -131,151 +154,18 @@ class TrainEnd2End():
         self.generator.to(device) 
         
 
-        """<----------List of reconstruction loss-------------------------------------->"""
-        # Binary cross entrophy loss
-        self.bce_loss = nn.BCELoss()
+        """<----------List of loss funtion--------->"""
+        # SyncLoss
+        self.sync_loss = CosineBCELoss()
         # Mean  Square Error loss
         self.mse_loss = nn.MSELoss()
         # L1 loss 
         self.l1_loss = nn.L1Loss()
-        # L1 smooth loss 
-        self.l1_smooth = nn.SmoothL1Loss()
-        
-
         # chosen reconstruction loss
-        self.recon_loss = self.l1_smooth
-
-    def __frontal_lip__(self,gen_lip,gt_face):
+        self.recon_loss = self.mse_loss
 
         
-        #  Shape (B, 5, 20, 2)
-        gen_lip = gen_lip.detach().clone().cpu().numpy().reshape(gen_lip.size(0),gt_face.size(1),-1,gt_face.size(3))
 
-        #  Shape (B, 5, 48, 2)
-        gt_face = gt_face.detach().clone().cpu().numpy()
-    
-        fl = np.concatenate((gt_face,gen_lip), axis=2)
-        
-        # list of frontal fl
-        frontal_batch = []
-        for b_idx in range(fl.shape[0]):
-            frontal_seq = [] 
-            for s_idx in range(fl.shape[1]):
-                
-                try:
-                    frontal, _ = frontalize_landmarks(fl[b_idx, s_idx], self.front_weight) 
-
-                except Exception as e : 
-
-                    print(e)
-                    frontal = fl[b_idx,s_idx]
-                    #self.__plot_lip__(frontal)
-                #self.__plot_lip__(frontal)
-                frontal_seq.append(frontal)
-
-            frontal_seq = np.stack(frontal_seq, axis=0) # (5, 68,2)
-            frontal_batch.append(frontal_seq)
-
-        frontal_batch = np.stack(frontal_batch, axis=0) #(B,5,68,2)
-
-        frontal_lip = frontal_batch[:,:,48:,:] 
-        
-        #self.__plot_lip__(vis[:48])
-        #vis_front = frontalize_landmarks(vis,self.front_weight)
-        #self.__plot_lip__(vis_front)
-
-
-        return frontal_lip
-
-    def __plot_lip__(self,fl):
-
-
-        plt.scatter(fl[:,0],fl[:,1])
-        plt.plot(fl[0:7,0],fl[0:7,1], c="tab:pink", linewidth=3 )
-        plt.plot(np.append(fl[6:12,0],fl[0,0]),np.append(fl[6:12,1],fl[0,1]), c="tab:pink", linewidth=3 )
-        plt.plot(fl[12:17,0],fl[12:17,1], c="tab:pink", linewidth=3 )
-        plt.plot(np.append(fl[16:20,0],fl[12,0]),np.append(fl[16:20,1],fl[12,1] ), c="tab:pink", linewidth=3)
-        #if line : plt.axvline(x = 1, color = 'b', linestyle='--',label = 'axvline - full height')
-    
-        plt.show()
-
-
-
-    def __lip_normalization__(self,fl_lip):
-
-        
-        norm_batch = []
-
-        for b_idx in range(fl_lip.shape[0]):
-
-            norm_seqs = []
-
-            for s_idx in range(fl_lip.shape[1]):
-
-                if s_idx == 0: 
-
-                    norm_lip, norm_distance = norm_lip2d(fl_lip[b_idx,s_idx])
-
-                else:
-
-                    norm_lip, _ = norm_lip2d(fl_lip[b_idx,s_idx], norm_distance)
-
-                norm_seqs.append(norm_lip)
-
-            norm_seqs = np.stack(norm_seqs, axis=0)
-
-            norm_batch.append(norm_seqs)
-
-        norm_batch = np.stack(norm_batch, axis=0)
-
-        return norm_batch
- 
-    def __get_sync_loss__ (self,audio, gen_lip,gt_face):
-
-        """
-        Calculate SyncLoss from Syncnet
-        """
-        
-        # frontalize a lip landmark
-
-        # Get a tensor that share same storage, but does not track history
-        # So that the frontalization and normalization wont affect gradient of model outputs
-        gen_lip_data = gen_lip.data
-
-        lip = self.__frontal_lip__(gen_lip_data, gt_face)
-        lip = self.__lip_normalization__(lip)
-        lip = lip.reshape(lip.shape[0],-1) 
-
-        # copy value from numpy array to tensor in tensor that shar storage
-        gen_lip_data.copy_(torch.from_numpy(lip)) 
-
-        """  
-        Code above would replace a value of gen_lip with frontalize and normalize lip 
-        with out affecting the gradient and computation graph of model by replace a value 
-        of variable of gen_lip_data which its storage is share with gen_lip 
-        """
-
-        gen_lip = gen_lip.reshape(gen_lip.size(0),5,-1) #  reshape tp satisfy the input shape of SyncNet
-        
-    
-        self.syncnet.eval()
-
-         
-        with torch.backends.cudnn.flags(enabled=False):
-
-            audio_emb, fl_emb = self.syncnet(audio, gen_lip) 
-        
-            # calculate similarity score
-            sim_score = nn.functional.cosine_similarity(audio_emb, fl_emb)
-
-            # create a torch tensor for the groundtruth
-            # generate the tensor of value ones since
-            # we want generated lip to sync to the speech 
-            y = torch.ones(gen_lip.shape[0], 1).to(device)
-            
-            loss = self.bce_loss(sim_score.unsqueeze(1), y )
-        
-        return loss
 
     def __get_disc_loss__ (self,disc_pred, y):
 
@@ -284,21 +174,15 @@ class TrainEnd2End():
 
         """
 
-        audio_emb , fl_emb = disc_pred
-
-
-        # calculate similarity score
-        sim_score = nn.functional.cosine_similarity(audio_emb, fl_emb)
-
-        sim_score = sim_score.unsqueeze(1)
+        # prdicted embedding
+        s , v = disc_pred
 
         # create a torch tensor for the groundtruth
-        # generate the tensor of value ones since
-        # we want generated lip to sync to the speech 
-        y_tensor = torch.ones_like(sim_score) if y  == 1 else torch.zeros_like(sim_score)
+        y= torch.ones(s.shape[0],1).to(device) if y  == 1 else torch.zeros(s.shape[0],1).to(device)
 
         
-        loss = self.bce_loss(sim_score, y_tensor)
+        # caculate sync loss
+        loss , acc = self.sync_loss(s,v,y) 
     
         return loss
  
@@ -318,10 +202,6 @@ class TrainEnd2End():
         
         for (con_fl, seq_mels, mel, gt_fl) in prog_bar:
             
-            #self.optimizer.zero_grad()
-            self.generator.train()
-            self.syncnet.train()
-            
             con_lip = con_fl[:,:,48:,:].to(device)
             con_face = con_fl[:,:,:48,:].to(device)
             gt_lip = gt_fl[:,:,48:,:].to(device)
@@ -331,23 +211,22 @@ class TrainEnd2End():
 
 
 
-            if  self.global_epoch >= self.apply_disc : 
-                ## Discriminator ## 
+            ###################### Discriminator #############################
+            if  self.global_epoch >= self.apply_disc and not self.pretrain: 
+
                 
+                self.syncnet.train()
                 self.disc_optimizer.zero_grad()
                 # generate a fake lip from generator  
                 fake_lip, _ =  self.generator(seq_mels, con_lip)
                 disc_fake_pred = self.syncnet(mel,fake_lip.detach())
-                disc_shuffle_pred = self.syncnet(mel,con_lip)
-                #self.__plot_lip__(gt_lip[0,0].detach().clone().cpu().numpy())
                 disc_real_pred = self.syncnet(mel,gt_lip)
                 
                 
                 disc_fake_loss = self.__get_disc_loss__(disc_fake_pred, y=0)
-                disc_shuffle_loss = self.__get_disc_loss__(disc_shuffle_pred, y=0)
                 disc_real_loss = self.__get_disc_loss__(disc_real_pred, y=1)
 
-                disc_loss = disc_fake_loss + disc_real_loss + disc_shuffle_loss
+                disc_loss = disc_fake_loss + disc_real_loss
                 disc_loss.backward(retain_graph=True)
                 self.disc_optimizer.step()
 
@@ -356,16 +235,18 @@ class TrainEnd2End():
                 disc_loss = torch.zeros(1)
 
             running_disc_loss += disc_loss.item()
+            #################################################################
 
 
             
-            ##  Generator ## 
+            ####################### Generator ###############################
             self.gen_optimizer.zero_grad()
+            self.generator.train()
             gen_lip, _ = self.generator(seq_mels, con_lip)
 
 
 
-            if self.global_epoch >=  self.apply_disc :
+            if self.global_epoch >=  self.apply_disc or self.pretrain:
 
                 disc_gen_pred = self.syncnet(mel, gen_lip)
                 gen_disc_loss = self.__get_disc_loss__(disc_gen_pred,y=1)
@@ -379,7 +260,7 @@ class TrainEnd2End():
             recon_loss = self.recon_loss(gen_lip,gt_lip)          
 
 
-            if self.global_epoch >=  self.apply_disc :
+            if self.global_epoch >=  self.apply_disc  or self.pretrain:
              
                 gen_loss  = (self.recon_coeff * recon_loss) + (self.sync_coeff * gen_disc_loss)
 
@@ -389,10 +270,11 @@ class TrainEnd2End():
 
             gen_loss.backward()
             self.gen_optimizer.step()
+            ####################################################################
 
         
-            running_recon_loss += recon_loss.item()
-            running_gen_disc_loss  += gen_disc_loss.item()
+            running_recon_loss += recon_loss.item() * self.recon_coeff if self.global_epoch >= self.apply_disc or self.pretrain else recon_loss.item()
+            running_gen_disc_loss  += gen_disc_loss.item() * self.sync_coeff if self.global_epoch >= self.apply_disc  or self.pretrain else  gen_disc_loss.item()
             running_gen_loss += gen_loss.item()
             
             iter_inbatch+=1
@@ -401,7 +283,7 @@ class TrainEnd2End():
              
             
             
-            prog_bar.set_description("TRAIN Epochs: {} , Generator Loss : {:.3f} , Recon : {:.3f}, Sync : {:.3f}, Disciminator : {:.3f}".format(self.global_epoch,
+            prog_bar.set_description("TRAIN Epochs: {} || Generator Loss : {:.5f} , Recon : {:.5f}, Sync : {:.5f} ||  Disciminator : {:.5f}".format(self.global_epoch,
                                                                                              running_gen_loss/iter_inbatch,
                                                                                              running_recon_loss/iter_inbatch,
                                                                                              running_gen_disc_loss/iter_inbatch,
@@ -430,9 +312,8 @@ class TrainEnd2End():
             for (con_fl, seq_mels, mel, gt_fl) in prog_bar:
                 
                 
-                #self.optimizer.zero_grad()
-                self.generator.eval()
-                self.syncnet.eval()
+                
+
                 
                 con_lip = con_fl[:,:,48:,:].to(device)
                 con_face = con_fl[:,:,:48,:].to(device)
@@ -443,21 +324,19 @@ class TrainEnd2End():
 
                 
                 if self.global_epoch >=  self.apply_disc :
-                ## Discriminator ## 
+                ################### Discriminator ##########################
 
+                    self.syncnet.eval()
                     # generate a fake lip from generator  
                     fake_lip, _ =  self.generator(seq_mels, con_lip)
                     disc_fake_pred = self.syncnet(mel,fake_lip.detach())
-                    disc_shuffle_pred = self.syncnet(mel,con_lip)
-                    #self.__plot_lip__(gt_lip[0,0].detach().clone().cpu().numpy())
                     disc_real_pred = self.syncnet(mel,gt_lip)
                     
                     
                     disc_fake_loss = self.__get_disc_loss__(disc_fake_pred, y=0)
-                    disc_shuffle_loss = self.__get_disc_loss__(disc_shuffle_pred, y=0)
                     disc_real_loss = self.__get_disc_loss__(disc_real_pred, y=1)
 
-                    disc_loss = disc_fake_loss + disc_real_loss + disc_shuffle_loss
+                    disc_loss = disc_fake_loss + disc_real_loss 
 
                     running_disc_loss += disc_loss.item()
 
@@ -465,11 +344,15 @@ class TrainEnd2End():
 
 
                     disc_loss = torch.zeros(1)
+
+                ################### Generator ##############################
+
+                self.generator.eval()
                      
                 gen_lip, _ = self.generator(seq_mels, con_lip)
 
                 
-                if self.global_epoch >=  self.apply_disc :
+                if self.global_epoch >=  self.apply_disc or self.pretrain:
                     disc_gen_pred = self.syncnet(mel, gen_lip)
                     gen_disc_loss = self.__get_disc_loss__(disc_gen_pred,y=1)
 
@@ -480,10 +363,11 @@ class TrainEnd2End():
                 gt_lip = gt_lip.reshape(gt_lip.size(0),-1)
                 gen_lip = gen_lip.reshape(gen_lip.size(0),-1) 
                 recon_loss = self.recon_loss(gen_lip,gt_lip)          
+                ############################################################
 
 
 
-                if self.global_epoch >=  self.apply_disc :
+                if self.global_epoch >=  self.apply_disc  or self.pretrain :
 
                     gen_loss  = (self.recon_coeff * recon_loss) + (self.sync_coeff * gen_disc_loss)
 
@@ -492,14 +376,15 @@ class TrainEnd2End():
                     gen_loss = recon_loss
 
 
-                running_recon_loss += recon_loss.item()
-                running_gen_disc_loss  += gen_disc_loss.item()
+
+                running_recon_loss += recon_loss.item() * self.recon_coeff if self.global_epoch >= self.apply_disc  or self.pretrain else recon_loss.item()
+                running_gen_disc_loss  += gen_disc_loss.item() * self.sync_coeff if self.global_epoch >= self.apply_disc or self.pretrain else  gen_disc_loss.item()
                 running_gen_loss += gen_loss.item()
-                
+
                 iter_inbatch+=1
                 
                 
-                prog_bar.set_description("VALI Epochs: {} , Generator Loss : {:.3f} , Recon : {:.3f}, Sync : {:.3f}, Disciminator : {:.3f}".format(self.global_epoch,
+                prog_bar.set_description("VALI Epochs: {} || Generator Loss : {:.5f} , Recon : {:.5f}, Sync : {:.5f} || Disciminator : {:.5f}".format(self.global_epoch,
                                                                                                  running_gen_loss/iter_inbatch,
                                                                                                  running_recon_loss/iter_inbatch,
                                                                                                  running_gen_disc_loss/iter_inbatch,
@@ -579,8 +464,12 @@ class TrainEnd2End():
 
             self.__update_logs__(cur_train_gen_loss, cur_vali_gen_loss,  cur_train_recon_loss,  cur_vali_recon_loss, cur_train_sync_loss, cur_vali_sync_loss, cur_train_disc_loss, cur_vali_disc_loss, com_fig, com_seq_fig)
 
-            # save checkpoint
-            save_checkpoint(self.generator, self.gen_optimizer, self.checkpoint_dir, self.global_epoch)
+
+            if self.global_epoch % self.checkpoint_interval == 0:
+
+                # save checkpoint
+                save_checkpoint(self.generator, self.gen_optimizer, self.checkpoint_dir, self.global_epoch, '{}.pth'.format(self.save_name))
+                self.__vis_vdo_result__()
 
             self.global_epoch +=1
 
@@ -694,5 +583,42 @@ class TrainEnd2End():
     
         
         return seq_fig
+
+    def __vis_vdo_result__ (self):
+        
+
+        from .inference import Inference
+        import argparse
+
+        parser = argparse.ArgumentParser(description="File for running Inference")
+
+        parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='./checkpoints/end2end/{}.pth'.format(self.save_name))
+
+        parser.add_argument('--image2image_checkpoint', type=str, help="File path for Image2Image Translation model checkpoint weigths", default='./checkpoints/image2image/image2image.pth',required=False)
+
+        parser.add_argument('--input_face', type=str, help="File path for input videos/images contain face",default='dummy/me.jpeg', required=False)
+
+        parser.add_argument('--input_audio', type=str, help="File path for input audio/speech as .wav files", default='./dummy/audio.mp3', required=False)
+
+        parser.add_argument('--fps', type=float, help= "Can only be specified only if using static image default(25 FPS)", default=25,required=False)
+
+        parser.add_argument('--fl_detector_batchsize',  type=int , help='Batch size for landmark detection', default = 32)
+
+        parser.add_argument('--generator_batchsize', type=int, help="Batch size for Generator model", default=16)
+
+        parser.add_argument('--output_name', type=str , help="Name and path of the output file", default="training_results.mp4")
+
+        parser.add_argument('--vis_fl', type=bool, help="Visualize Facial Landmark ??", default=True)
+
+        parser.add_argument('--test_img2img', type=bool, help="Testing image2image module with no lip generation" , default=False)
+
+        args = parser.parse_args()
+
+        eval_result = Inference(args=args)
+
+        eval_result.start()
+
+
+
 
  

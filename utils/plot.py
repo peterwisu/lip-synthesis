@@ -136,7 +136,24 @@ def plot_roc(y_pred_proba,y_gt):
 
 
 def plot_compareLip(predict,gt_lip):
+    """
+    ************************************************************
+    plot_compareLip : Plot comparision between the generated lip and actual lip
+    ************************************************************
+    @author: Wish Suharitdamrong
+    ------
+    inputs
+    ------
+        predict : predicted lip in form of torch tensor 
+        gt_lip  : ground truht lip in form of torch tensor
+    -------
+    returns
+    -------
+        com_fig :  comparision figure
+    """
+    
 
+    # convert torch tensor into numpy array
     lip_pred = predict.reshape(predict.shape[0], predict.shape[1], 20, -1)[0, 0].detach().clone().cpu().numpy()
     fl = gt_lip.reshape(predict.shape[0], predict.shape[1], 20, -1)[0, 0].detach().clone().cpu().numpy()
 
@@ -165,12 +182,24 @@ def plot_compareLip(predict,gt_lip):
 
 
 def plot_visLip(fl):
-
-
+    """
+    ************************************************************
+    plot_visLip :  Visualize lip landmark mark
+    ************************************************************
+    @author: Wish Suharitdamrong
+    ------
+    inputs
+    ------
+        fl : lip landmark in form of numpy array 
+    -------
+    returns
+    -------
+        com_fig :  comparision figure
+    """
+    
+    # invert yaxis value so that the lip is wont display upside down
     fl[:,1] = -fl[:,1]
-
-    fig, ax = plt.subplots()
-   
+    fig, ax = plt.subplots() 
     ax.scatter(fl[:,0],fl[:,1],s=20, c='r',linewidths=4)
     ax.plot(fl[0:7,0],fl[0:7,1], c="tab:pink", linewidth=3 )
     ax.plot(np.append(fl[6:12,0],fl[0,0]),np.append(fl[6:12,1],fl[0,1]), c="tab:pink", linewidth=3 )
@@ -185,7 +214,20 @@ def plot_visLip(fl):
 
 
 def plot_seqlip_comp(pred,ref,gt):
-
+    """
+    ************************************************************
+    plot_seqlip_comp : Visualize  gena 
+    ************************************************************
+    @author: Wish Suharitdamrong
+    ------
+    inputs
+    ------
+        fl : lip landmark in form of numpy array 
+    -------
+    returns
+    -------
+        com_fig :  comparision figure
+    """
     
     fig, (ax1, ax2) = plt.subplots(nrows=1 , ncols=2, figsize=(15,6))
 
@@ -202,13 +244,12 @@ def plot_seqlip_comp(pred,ref,gt):
     ax1.plot(np.append(fl[6:12,0],fl[0,0]),np.append(fl[6:12,1],fl[0,1]), c="tab:cyan", linewidth=3 )
     ax1.plot(fl[12:17,0],fl[12:17,1], c="tab:cyan", linewidth=3 )
     ax1.plot(np.append(fl[16:20,0],fl[12,0]),np.append(fl[16:20,1],fl[12,1] ), c="tab:cyan", linewidth=3)
-
     ax1.legend(loc="upper left")
     ax1.invert_yaxis()
 
-    
-    fl = pred
+    #################################################################################
 
+    fl = pred
     ax2.scatter(fl[:,0],fl[:,1],s=20, c='r',linewidths=4)
     ax2.plot(fl[0:7,0],fl[0:7,1], c="tab:red", linewidth=3 , label='Generated')
     ax2.plot(np.append(fl[6:12,0],fl[0,0]),np.append(fl[6:12,1],fl[0,1]), c="tab:red", linewidth=3 )
@@ -243,9 +284,14 @@ Link: https://github.com/yzhou359/MakeItTalk
 
 # Visualize Facial Landmark (Whole Face)
 def vis_landmark_on_img(img, shape, linewidth=2):
-    '''
-    Visualize landmark on images.
-    '''
+
+    """
+
+    This function is from ***MakeItTalk***
+
+    Link: https://github.com/yzhou359/MakeItTalk
+
+    """
     def draw_curve(idx_list, color=(0, 255, 0), loop=False, lineWidth=linewidth):
         for i in idx_list:
             cv2.line(img, (shape[i, 0], shape[i, 1]), (shape[i + 1, 0], shape[i + 1, 1]), color, lineWidth)
@@ -263,6 +309,20 @@ def vis_landmark_on_img(img, shape, linewidth=2):
     draw_curve(list(range(60, 67)), loop=True, color=(238, 130, 238))
 
     return img
+
+def plot_scatter_facial_landmark(fl):
+
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.scatter(fl[:,0],fl[:,1],s=20,c='r')
+    ax.plot(fl[0:7,0],fl[0:7,1], c="tab:pink", linewidth=3 )
+    ax.plot(np.append(fl[6:12,0],fl[0,0]),np.append(fl[6:12,1],fl[0,1]), c="tab:pink", linewidth=3 )
+    ax.plot(fl[12:17,0],fl[12:17,1], c="tab:pink", linewidth=3 )
+    ax.plot(np.append(fl[16:20,0],fl[12,0]),np.append(fl[16:20,1],fl[12,1] ), c="tab:pink", linewidth=3)
+    ax.invert_yaxis()
+    fig.tight_layout()
+    plt.show()
+
 
 
 

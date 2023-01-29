@@ -1,4 +1,4 @@
-from matplotlib.patches import transforms
+
 import torch
 import torch.nn as nn
 from torch.nn.parallel import DataParallel
@@ -14,6 +14,7 @@ import os
 from src.models.image2image import ResUnetGenerator
 from src.models.lstmgen import LstmGen as Lip_Gen
 from utils.wav2lip import prepare_audio, prepare_video, load_checkpoint
+from utils.utils import procrustes
 
 from utils.front import frontalize_landmarks
 import matplotlib.pyplot as plt
@@ -36,6 +37,7 @@ class Inference():
         self.input_audio = args.input_audio
         self.vis_fl = args.vis_fl
         self.output_name = args.output_name
+        self.test_img2img = args.test_img2img
         
         
         
@@ -69,6 +71,8 @@ class Inference():
 
         # frontalization_weights
         self.front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
+
+
     
  
     def __landmark_detection__(self,images, batch_size):
@@ -105,13 +109,17 @@ class Inference():
             img = images[i:i+batch_size]          
             fl_batch = detector.get_landmarks_from_batch(img)
             
-            fl_batch = np.array(fl_batch)[:,:,:2] # take only 2D (x,y)
+            #fl_batch = np.array(fl_batch)[:,:,:2] # take only 2D (x,y)
+
+            fl_batch = np.array(fl_batch)[:,:,:] # take only 3d
             
             fl = [] 
             for idx in range(fl_batch.shape[0]):
 
              
-                fl_inbatch, trans_info = frontalize_landmarks(fl_batch[idx],self.front_weight)
+                #fl_inbatch, trans_info = frontalize_landmarks(fl_batch[idx],self.front_weight)
+
+                fl_inbatch, trans_info = procrustes(fl_batch[idx])
                 fl.append(fl_inbatch)
                 transforms.append(trans_info)
             
@@ -151,11 +159,10 @@ class Inference():
 
         scale = tran['scale']
         translate = tran['translate']
-        rotate = tran['rotate']
+        #rotate = tran['rotate']
 
-        rotate = np.linalg.inv(rotate)  # inverse tranformation matrix (for rotating face)
-
-        fl =  np.matmul(fl, rotate)  # reverse rotation
+        #rotate = np.linalg.inv(rotate)  # inverse tranformation matrix (for rotating face)
+        #fl =  np.matmul(fl, rotate)  # reverse rotation
         fl = fl *  scale # reverse scaling
         fl = fl + translate # reverse translation
         
@@ -247,23 +254,26 @@ class Inference():
             # ref frame (B, 256, 256, 3)
             lip_fl =  torch.FloatTensor(fl).to(device)
             lip_fl = lip_fl[:,48:,:] # take only lip keypoints
-            lip_fl = lip_fl.reshape(-1,40)
+            lip_fl = lip_fl.reshape(lip_fl.shape[0],-1)
             mel = torch.FloatTensor(mel).to(device)
             mel = mel.reshape(-1,80,18)
-    
-            with torch.no_grad():
-
-                self.generator.eval()       
-                out_fl,_ = self.generator(mel, lip_fl, inference=True) 
-
-            out_fl = out_fl.detach().cpu().numpy() # convert output to numpy array
-            out_fl = out_fl.reshape(-1,20,2)
             
-            out_fl = out_fl
-            fl[:,48:,:] = out_fl
+            if not self.test_img2img: # check if not testing image2image translation module only no lip generator
+                with torch.no_grad():
+
+                    self.generator.eval()       
+                    out_fl,_ = self.generator(mel, lip_fl, inference=True) 
+
+                out_fl = out_fl.detach().cpu().numpy() # convert output to numpy array
+                out_fl = out_fl.reshape(out_fl.shape[0],20,-1)
+                
+                out_fl = out_fl
+                fl[:,48:,:] = out_fl
 
 
             fl =  self.__reverse_trans_batch__(fl , trans)
+
+            np.savetxt('fl_inference.txt',fl.reshape(fl.shape[0],-1), fmt='%.4f')
             
             # plot a image of landmarks
             fl_image = self.__keypoints2landmarks__(fl)

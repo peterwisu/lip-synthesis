@@ -11,7 +11,7 @@ This code has been modified to load a datasets containing Facial Landmarks inste
 from hparams import hparams
 from utils.wav2lip import get_fl_list
 from os.path import basename, isfile, dirname, join
-import cv2
+#import cv2
 import os
 import utils.audio as audio
 import time 
@@ -21,6 +21,8 @@ import torch
 import numpy as np
 import warnings
 from utils.front import frontalize_landmarks
+from utils.utils import procrustes
+from utils.plot import plot_scatter_facial_landmark
 
 
 
@@ -60,7 +62,17 @@ class Dataset(object):
 
             # check whether is facial landmark can be frontalize or not?
             try:
-                fl, _  = frontalize_landmarks(fl[:,:2],self.front_weight)
+
+                #fl, _  = frontalize_landmarks(fl[:,:2],self.front_weight)
+
+                #lip = fl[48:,:]
+        
+                #norm_lip, _ =   procrustes(lip) # normalize only lip
+
+                #fl[48:,:] = norm_lip # note that in the fl array containing 3d facial landamrks but lip are in normalize form 
+
+                fl ,_ =procrustes(fl)
+
 
             except Exception as e:
                 
@@ -82,6 +94,7 @@ class Dataset(object):
 
         end_idx = start_idx + syncnet_mel_step_size
 
+
         return spec[start_idx: end_idx, :]
 
     def get_segmented_mels(self, spec, start_frame):
@@ -96,6 +109,7 @@ class Dataset(object):
             if m.shape[0] != syncnet_mel_step_size:
                 return None
             mels.append(m.T)
+            
 
         mels = np.asarray(mels)
 
@@ -160,12 +174,12 @@ class Dataset(object):
             y = np.array(window.copy())
 
             x = np.array(wrong_window)
-            x = torch.FloatTensor(x[:, :, :2]) 
+            x = torch.FloatTensor(x[:, :, :]) 
             x =  [x[0] for i in range(x.size(0))] 
             x =  torch.stack(x , dim=0)
             mel = torch.FloatTensor(mel.T).unsqueeze(0)
             indiv_mels = torch.FloatTensor(indiv_mels).unsqueeze(1)
-            y = torch.FloatTensor(y[:,:, :2])
+            y = torch.FloatTensor(y[:,:, :])
 
             return x, indiv_mels, mel, y
 

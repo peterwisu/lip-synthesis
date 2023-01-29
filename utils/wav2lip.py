@@ -19,9 +19,9 @@ import numpy as np
 from utils import audio
 
 
-def save_checkpoint(model, optimizer,  checkpoint_dir, epoch):
+def save_checkpoint(model, optimizer,  checkpoint_dir,epoch, savename):
     checkpoint_path = join(
-        checkpoint_dir, "checkpoint_lip_fl_epoch{:09d}.pth".format(epoch))
+        checkpoint_dir, savename)
 
     optimizer_state = optimizer.state_dict()
     torch.save({

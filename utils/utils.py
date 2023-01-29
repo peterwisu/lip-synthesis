@@ -149,11 +149,134 @@ def norm_lip2d(fl_lip, distance=None):
 
 def get_accuracy(y_pred,y_true):
     """
-
+    *********
+    get_accuracy : calcualte accuracy of a model
+    *********
+    @author: Wish Suharitdamrong
+    ------
+    inputs : 
+    ------
+        y_pred : predicted label
+        y_true : ground truth of a label
+    -------
+    outputs :
+    -------
+        acc : accuracy of a model
+ 
     """
 
     acc =  accuracy_score(y_pred,y_true, normalize=True) * 100
 
     return acc
+
+
+def procrustes(fl):
+    
+    transformation = {}
+
+    fl, mean = translation(fl)
+
+    fl, scale = scaling(fl)
+
+    #fl , rotate = rotation(fl)
+
+    transformation['translate'] = mean 
+
+    transformation['scale'] = scale
+
+    #transformation['rotate'] = rotate
+
+    return  fl , transformation
+
+
+def translation(fl):
+
+    mean =  np.mean(fl, axis=0)
+
+    fl = fl - mean
+
+    return fl , mean
+
+def scaling(fl):
+
+    scale = np.sqrt(np.mean(np.sum(fl**2, axis=1)))
+
+    fl = fl/scale
+
+    return  fl , scale
+
+def rotation(fl): 
+
+    left_eye , right_eye = get_eye(fl)
+
+    dx = right_eye[0] - left_eye[0]
+    dy = right_eye[1] - left_eye[1]
+    dz = right_eye[2] - left_eye[2]
+    
+    #  Roll : rotate through z axis 
+    if dx!=0 :
+        f = dy/dx
+        a = np.arctan(f)
+        roll = np.array([
+                    [math.cos(a), -math.sin(a)  , 0],
+                    [math.sin(a), math.cos(a)   , 0],
+                    [0,               0         , 1]
+                ])
+    else:
+        roll = np.array([
+                    [1 , 0 , 0],
+                    [0 , 1 , 0],
+                    [0 , 0 , 1]
+                ])
+
+    # Yaw : rotate through y axis        
+    f = dx/dz
+
+    a = np.arctan(f)
+    yaw = np.array([
+                [math.cos(a),0, math.sin(a)],
+                [0,1,0],
+                [-math.sin(a),0,math.cos(a)]
+    ])
+
+   # 
+   # f=  dz/dy
+   # a = np.arctan(f)
+   # pitch = np.array([
+   #             [1,0,0],
+   #             [0,math.cos(a), -math.sin(a)],
+   #             [0,math.sin(a),math.cos(a)],
+   #            
+   # ])
+    
+    # Roate face in  frontal pose
+    a = np.arctan(90)
+    frontal = np.array([
+                [math.cos(a),0, math.sin(a)],
+                [0,1,0],
+                [-math.sin(a),0,math.cos(a)]
+    ])
+    
+    #  transformation for rotation
+    rotate = np.matmul(np.matmul(roll,yaw),frontal)
+
+    fl = np.matmul(fl,rotate)
+ 
+
+    return fl , rotate
+
+def get_eye(fl):
+    """
+    get_eye : get center of both eye on the facial landmarks
+    """
+
+    left_eye  = np.mean(fl[36:42,:], axis=0)
+    right_eye = np.mean(fl[42:48,:], axis=0)
+
+    return left_eye, right_eye
+
+
+
+    
 
 

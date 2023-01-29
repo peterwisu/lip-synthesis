@@ -28,7 +28,7 @@ class TransformerGenerator(nn.Module):
                     nn.Conv2d(64,128, kernel_size = (3,3), stride=(3,3), padding=1), #(3,2)
                     nn.ReLU(),
                     nn.Conv2d(128,256, kernel_size = (3,2), stride=1, padding=0), #(1,1)
-                    nn.Relu(),
+                    nn.RelLU(),
                     nn.Flatten()
 
                                         )

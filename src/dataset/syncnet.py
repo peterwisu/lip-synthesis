@@ -20,6 +20,7 @@ import math
 import matplotlib.pyplot as plt
 from utils.wav2lip import get_fl_list
 from utils.front import frontalize_landmarks
+from utils.utils import procrustes
 import warnings
 
 
@@ -29,16 +30,12 @@ syncnet_T = 5
 syncnet_mel_step_size = 18
 
 
-
-
-
 class Dataset(torch.utils.data.Dataset):
 
     def __init__(self, split, args):
 
         self.all_videos = get_fl_list(args.data_root, split)
 
-        self.front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
 
     def get_frame_id(self, frame):
 
@@ -72,33 +69,6 @@ class Dataset(torch.utils.data.Dataset):
         return spec[start_idx:end_idx, :]
 
 
-    def visualize_lip(fl ,Point=False, cv=True):
-        temp = fl
-
-        fl =temp 
-        
-        fl[:,1] = -fl[:,1] 
-        fig = plt.figure()
-        
-        ax = fig.add_subplot()
-        ax.scatter(fl[:,0],fl[:,1],s=20, c='r',linewidths=4)
-        ax.plot(fl[0:7,0],fl[0:7,1], c="tab:pink", linewidth=3 )
-        ax.plot(np.append(fl[6:12,0],fl[0,0]),np.append(fl[6:12,1],fl[0,1]), c="tab:pink", linewidth=3 )
-        ax.plot(fl[12:17,0],fl[12:17,1], c="tab:pink", linewidth=3 )
-        ax.plot(np.append(fl[16:20,0],fl[12,0]),np.append(fl[16:20,1],fl[12,1] ), c="tab:pink", linewidth=3)
-        ax.axvline(x = 1, color = 'b', linestyle='--',label = 'axvline - full height')
-        fig.tight_layout() 
-        plt.show()
-        return None
-
-    def visualize_face(self, fl):
-
-        fig = plt.figure()
-        ax = fig.add_subplot()
-
-        ax.scatter(fl[:,0],fl[:,1],s=20,c='r')
-        fig.tight_layout()
-        plt.show()
 
             
     def norm_lip2d(self, fl_lip, distance=None):
@@ -182,44 +152,38 @@ class Dataset(torch.utils.data.Dataset):
              
             for i, fname in enumerate(window_fnames):
 
-                rfl = np.loadtxt(fname)[:,:2]
+                rfl = np.loadtxt(fname)[:,:]
                                 
-                try :
-                    fl, _ = frontalize_landmarks(rfl,self.front_weight)
+               # try :
+               #     fl, _ = frontalize_landmarks(rfl,self.front_weight)
 
-                except Exception as e :
-                    
-                    all_read = False
-                
-                    fl = rfl
-                    break
-            
-                
-                
+               # except Exception as e :
+               #     
+               #     all_read = False
+               # 
+               #     fl = rfl
+               #     break
+               # 
+
+                fl,_ = procrustes(rfl)
                 fl = fl[48:,:] #  take only lip
             
                 if fl is None:
                     all_read = False
                     break
 
-                if i == 0:
+               # if i == 0:
 
-                    
-                    fl, temp_dis = self.norm_lip2d(fl)
-                    
-                
-                else:
+               #     
+               #     fl, temp_dis = self.norm_lip2d(fl)
+               # 
+               # else:
 
-                    
-                    fl, _ = self.norm_lip2d(fl,temp_dis)
-
+               #     fl, _ = self.norm_lip2d(fl,temp_dis)
 
                 window.append(fl)
 
-
             if not all_read: continue
-
-        
 
             # get audio
 
@@ -230,8 +194,6 @@ class Dataset(torch.utils.data.Dataset):
                 orig_mel = audio.melspectrogram(wav).T #(timestep, 80)
             except Exception as e:
                 continue
-
-            
 
             # get audio of 5 frames
 
@@ -245,5 +207,4 @@ class Dataset(torch.utils.data.Dataset):
 
             mel = torch.FloatTensor(mel.T).unsqueeze(0)
 
-        
             return x, mel, y

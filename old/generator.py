@@ -16,7 +16,8 @@ from src.models.syncnet import SyncNet
 from torch.utils.tensorboard import SummaryWriter
 from utils.plot import plot_compareLip, plot_visLip, plot_comp, plot_seqlip_comp
 from utils.wav2lip import load_checkpoint , save_checkpoint
-from utils.utils import save_logs,load_logs , norm_lip2d
+from utils.utils import save_logs,load_logs 
+from utils.loss import CosineBCELoss
 
 
 use_cuda = torch.cuda.is_available()
@@ -42,12 +43,12 @@ class TrainGenerator():
         self.apply_disc = hparams.gen_apply_disc
         self.global_epoch = 0
         self.nepochs = hparams.gen_nepochs
-        self.lr =   hparams.gen_lr# 0.0001
+        self.lr =   hparams.gen_lr
 
         self.recon_coeff = hparams.gen_recon_coeff
         self.sync_coeff = hparams.gen_sync_coeff
         # frontalize weight
-        self.front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
+        #self.front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
 
         
             
@@ -78,7 +79,7 @@ class TrainGenerator():
         if self.ckpt_syncnet_path is not None:
             print("Loading SyncNet .......")  
             # load Syncnet 
-            self.syncnet = SyncNet().to(device=device)
+            self.syncnet = SyncNet(pretrain=True,is3D=False).to(device=device)
             # load Syncnet checkpoint
             self.syncnet = load_checkpoint(path=self.ckpt_syncnet_path,
                                            model=self.syncnet,
@@ -158,8 +159,7 @@ class TrainGenerator():
         
 
         # chosen reconstruction loss
-        self.recon_loss = self.l1_smooth
-
+        self.recon_loss = self.mse_loss
                             
 
 
@@ -168,144 +168,18 @@ class TrainGenerator():
 
         self.audio = None 
 
-    def __frontal_lip__(self,gen_lip,gt_face):
-
-        
-        #  Shape (B, 5, 20, 2)
-        gen_lip = gen_lip.detach().clone().cpu().numpy().reshape(gen_lip.size(0),gt_face.size(1),-1,gt_face.size(3))
-
-        #  Shape (B, 5, 48, 2)
-        gt_face = gt_face.detach().clone().cpu().numpy()
-    
-        fl = np.concatenate((gt_face,gen_lip), axis=2)
-        
-        # list of frontal fl
-        frontal_batch = []
-        for b_idx in range(fl.shape[0]):
-            frontal_seq = [] 
-            for s_idx in range(fl.shape[1]):
-                
-                try:
-                    frontal, _ = frontalize_landmarks(fl[b_idx, s_idx], self.front_weight) 
-
-                except Exception as e : 
-
-                    print(e)
-                    frontal = fl[b_idx,s_idx]
-                    #self.__plot_lip__(frontal)
-                #self.__plot_lip__(frontal)
-                frontal_seq.append(frontal)
-
-            frontal_seq = np.stack(frontal_seq, axis=0) # (5, 68,2)
-            frontal_batch.append(frontal_seq)
-
-        frontal_batch = np.stack(frontal_batch, axis=0) #(B,5,68,2)
-        
-        frontal_lip = frontal_batch[:,:,48:,:] 
-        
-        #vis = all_frontal[0,0]
-        #self.__plot_lip__(vis[:48])
-        #vis_front = frontalize_landmarks(vis,self.front_weight)
-        #self.__plot_lip__(vis_front)
-
-
-        return frontal_lip
-
-    def __plot_lip__(self,fl,line=True):
-
-
-        plt.scatter(fl[:,0],fl[:,1])
-        plt.plot(fl[0:7,0],fl[0:7,1], c="tab:pink", linewidth=3 )
-        plt.plot(np.append(fl[6:12,0],fl[0,0]),np.append(fl[6:12,1],fl[0,1]), c="tab:pink", linewidth=3 )
-        plt.plot(fl[12:17,0],fl[12:17,1], c="tab:pink", linewidth=3 )
-        plt.plot(np.append(fl[16:20,0],fl[12,0]),np.append(fl[16:20,1],fl[12,1] ), c="tab:pink", linewidth=3)
-        if line : plt.axvline(x = 1, color = 'b', linestyle='--',label = 'axvline - full height')
-    
-        plt.show()
-
-
-    def __lip_normalization__(self,fl_lip):
-
-        
-        norm_batch = []
-
-        for b_idx in range(fl_lip.shape[0]):
-
-            norm_seqs = []
-
-            for s_idx in range(fl_lip.shape[1]):
-
-                if s_idx == 0: 
-
-                    norm_lip, norm_distance = norm_lip2d(fl_lip[b_idx,s_idx])
-
-                    #if self.global_epoch >= 10 :
-
-                       # self.__plot_lip__(norm_lip)
-
-                else:
-
-                    norm_lip, _ = norm_lip2d(fl_lip[b_idx,s_idx], norm_distance)
-
-
-                    #if self.global_epoch >= 10 :
-
-                        #self.__plot_lip__(norm_lip)
-
-                norm_seqs.append(norm_lip)
-
-            norm_seqs = np.stack(norm_seqs, axis=0)
-
-            norm_batch.append(norm_seqs)
-
-        norm_batch = np.stack(norm_batch, axis=0)
-
-        return norm_batch
- 
-    def __get_sync_loss__ (self,audio, gen_lip,gt_face):
+    def __get_sync_loss__ (self,audio, gen_lip):
 
         """
         Calculate SyncLoss from Syncnet
         """
-        
-        # frontalize a lip landmark
-
-        # Get a tensor that share same storage, but does not track history
-        # So that the frontalization and normalization wont affect gradient of model outputs
-        gen_lip_data = gen_lip.data
-
-        lip = self.__frontal_lip__(gen_lip_data, gt_face)
-        lip = self.__lip_normalization__(lip)
-        lip = lip.reshape(lip.shape[0],-1) 
-
-        # copy value from numpy array to tensor in tensor that shar storage
-        gen_lip_data.copy_(torch.from_numpy(lip)) 
-
-        """  
-        Code above would replace a value of gen_lip with frontalize and normalize lip 
-        with out affecting the gradient and computation graph of model by replace a value 
-        of variable of gen_lip_data which its storage is share with gen_lip 
-        """
-
-        gen_lip = gen_lip.reshape(gen_lip.size(0),5,-1) #  reshape tp satisfy the input shape of SyncNet
-        
-    
         self.syncnet.eval()
-
-         
-        with torch.backends.cudnn.flags(enabled=False):
-
-            audio_emb, fl_emb = self.syncnet(audio, gen_lip) 
         
-            # calculate similarity score
-            sim_score = nn.functional.cosine_similarity(audio_emb, fl_emb)
+        s, v = self.syncnet(audio, gen_lip)
 
-            # create a torch tensor for the groundtruth
-            # generate the tensor of value ones since
-            # we want generated lip to sync to the speech 
-            y = torch.ones(gen_lip.shape[0], 1).to(device)
-            
-            loss = self.bce_loss(sim_score.unsqueeze(1), y )
+        y = torch.ones(gen_lip.shape[0],1).to(device)
+        
+        loss , _ = CosineBCELoss(s,v,y) 
         
         return loss
         
@@ -315,7 +189,6 @@ class TrainGenerator():
         
         running_sync_loss = 0.
         running_recon_loss = 0.
-        running_lapla_loss =0.
         running_loss =0
         iter_inbatch = 0
         
@@ -338,14 +211,17 @@ class TrainGenerator():
            
             gen_lip, _ = self.generator(seq_mels, con_lip) 
 
-            gt_lip = gt_lip.reshape(gt_lip.size(0),-1)
-            gen_lip = gen_lip.reshape(gen_lip.size(0),-1)
-        
+            #gt_lip = gt_lip.reshape(gt_lip.size(0),-1)
+            #gen_lip = gen_lip.reshape(gen_lip.size(0),-1)
+
+
             
-            recon_loss = self.recon_loss(gen_lip,gt_lip)
+            recon_loss = self.recon_loss(gt_lip.reshape(gt_lip.size(0),-1),gen_lip.reshape(gen_lip.size(0),-1))
 
                 
-            sync_loss = self.__get_sync_loss__ (mel, gen_lip, gt_face) if  self.global_epoch >=self.apply_disc  else  torch.zeros(1)
+            gen_lip = gen_lip[:,:,:40]
+
+            sync_loss = self.__get_sync_loss__ (mel, gen_lip) if  self.global_epoch >=self.apply_disc  else  torch.zeros(1)
             
             
             loss  = (self.recon_coeff * recon_loss) + (self.sync_coeff * sync_loss)if  self.global_epoch >= self.apply_disc else recon_loss
@@ -353,11 +229,9 @@ class TrainGenerator():
             loss.backward()
             self.optimizer.step()
 
-        
 
-            # display a loss before multiply to coefficent
-            running_recon_loss += recon_loss.item()
-            running_sync_loss  += sync_loss.item()
+            running_recon_loss += recon_loss.item() * self.recon_coeff if self.global_epoch >= self.apply_disc else recon_loss.item()
+            running_sync_loss  += sync_loss.item() * self.sync_coeff if self.global_epoch >= self.apply_disc else sync_loss.item()
 
             running_loss += loss.item()
             
@@ -405,8 +279,6 @@ class TrainGenerator():
      
 
                 gen_lip , _ = self.generator(seq_mels, con_lip)
-
-                #gt_lip = gt_lip.reshape(gen_lip.shape[0],-1,60)
             
 
                 gt_lip = gt_lip.reshape(gt_lip.size(0),-1)
@@ -415,14 +287,12 @@ class TrainGenerator():
                 recon_loss = self.recon_loss(gen_lip,gt_lip)
                  
             
-                sync_loss = self.__get_sync_loss__ (mel, gen_lip, gt_face) if  self.global_epoch >= self.apply_disc  else  torch.zeros(1)
+                sync_loss = self.__get_sync_loss__ (mel, gen_lip) if  self.global_epoch >= self.apply_disc  else  torch.zeros(1)
 
                 loss  = (self.recon_coeff * recon_loss) + (self.sync_coeff * sync_loss)if  self.global_epoch >= self.apply_disc else recon_loss
                 
-                # display a loss before multiply to coefficent
-                running_recon_loss +=  recon_loss.item()
-                running_sync_loss  +=  sync_loss.item()
-
+                running_recon_loss += recon_loss.item() * self.recon_coeff if self.global_epoch >= self.apply_disc else recon_loss.item()
+                running_sync_loss  += sync_loss.item() * self.sync_coeff if self.global_epoch >= self.apply_disc else sync_loss.item()
 
                 running_loss += loss.item() 
                 iter_inbatch +=1
@@ -494,7 +364,7 @@ class TrainGenerator():
             self.__update_logs__(cur_train_loss, cur_vali_loss,  cur_train_recon_loss,  cur_vali_recon_loss, cur_train_sync_loss, cur_vali_sync_loss, com_fig, com_seq_fig)
 
             # save checkpoint
-            save_checkpoint(self.generator, self.optimizer, self.checkpoint_dir, self.global_epoch)
+            save_checkpoint(self.generator, self.optimizer, self.checkpoint_dir, self.global_epoch, self.save_name)
 
             self.global_epoch +=1
 
@@ -610,14 +480,6 @@ class TrainGenerator():
         return seq_fig
 
 
-    def __vis_vdo__ (self):
-
-
-         
-
-        
-
-        return None 
 
 
 

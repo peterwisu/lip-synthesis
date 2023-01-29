@@ -2,51 +2,58 @@
 
 """
 
-from operator import concat
 import torch
 import torch.nn as nn
 import time 
 
+
 class LstmGen(nn.Module):
 
-    def __init__ (self):
+    def __init__ (self, is3D=True):
         super(LstmGen, self).__init__()
 
 
+        self.n_values = 60 if is3D else 40 # values of landmarks 60 if it is 3D ( 20 x 3) else 2D is 40 (20 x 2)
+
         self.feed = nn.Sequential(
-                Linear(1064, 512),
-                Linear(512, 256,),
-                Linear(256, 128,),  
-                Linear(128, 40 , dropout=False, batchnorm=False, activation=False),
+                LinearBlock(1024 + self.n_values, 512),
+                LinearBlock(512, 256,),
+                LinearBlock(256, 128,),  
+                LinearBlock(128, 60 , dropout=False, batchnorm=False, activation=False),
+                #nn.Linear(128,self.n_values)
                 )
+        
+        self.au_encoder = nn.Sequential( #input (1,80,18)
+                                        ConvBlock(1, 64, kernel_size=(3,3),stride=1, padding=0),
+                                        #ResidualBlock(64,64, kernel_size=(3,3),stride=1, padding=1),
+                                        #ResidualBlock(64,64, kernel_size=(3,3),stride=1, padding=1, ),
+                                        
+                                        ConvBlock(64,128, kernel_size=(5,3), stride=(3,1), padding=1),
+                                        #ResidualBlock(128,128, kernel_size=(3,3), stride=(1,1), padding=1),
+                                        #ResidualBlock(128,128, kernel_size=(3,3), stride=(1,1), padding=1),
 
+                                        ConvBlock(128,256, kernel_size=(5,3), stride=(3,3), padding=0),
+                                        #ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1),
+                                        #ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1),
 
-        self.au_encoder = nn.Sequential( #Input ( 1, 80 ,18)
-                                        nn.Conv2d(1,16, kernel_size = (3,3), stride=1, padding=0), # (78,16)
-                                        nn.ReLU(),
-                                        nn.Dropout(0.25),
-                                        nn.Conv2d(16,32, kernel_size = (5,3), stride=(3,1), padding=1), # (26,16)'              
-                                        nn.ReLU(),
-                                        nn.Dropout(0.25),
-                                        nn.Conv2d(32,64, kernel_size = (5,3), stride=(3,3), padding=0), # (8,5)
-                                        nn.ReLU(),
-                                        nn.Dropout(0.25),
-                                        nn.Conv2d(64,128, kernel_size = (3,3), stride=(3,3), padding=1), #(3,2)
-                                        nn.ReLU(),
-                                        nn.Dropout(0.25),
-                                        nn.Conv2d(128,256, kernel_size = (3,2), stride=1, padding=0), #(1,1)
-                                        nn.ReLU(),
+                                        ConvBlock(256,256, kernel_size=(3,3), stride=(3,3), padding=1),
+                                        #ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1),
+                                        #ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1),
+                                        
+                                        ConvBlock(256,512, kernel_size=(3,2), stride=(1,1), padding=0),
+                                    
                                         nn.Flatten()
-
                                         )
 
-        self.lstm_encoder  = Encoder(input_size=256, hidden_size=512, num_layers=4, dropout=0.25, bidirectional=True, batch_first=True)
+
+
+        self.lstm_encoder  = Encoder(input_size=512, hidden_size=512, num_layers=4, dropout=0.25, bidirectional=True, batch_first=True)
+
 
     def forward(self, au, lip, inference=False):
 
     
         if inference:
-
 
             outs = []
             print(au.shape)
@@ -146,60 +153,37 @@ class Encoder(nn.Module):
         return out , hidden , cell 
 
 
-
-
-class Decoder(nn.Module):
-
-    def __init__ (self, input_size, hidden_size,num_layers, dropout, bidirectional=True,batch_first=False):
-
-        super(Decoder,self).__init__()
-
-        self.lstm = nn.LSTM(
-                                input_size=input_size,
-                                hidden_size=hidden_size,
-                                num_layers=num_layers,
-                                dropout=dropout,
-                                bidirectional=bidirectional,
-                                batch_first=batch_first
-                            ) 
-
-    def forward(self,inputs, hidden, cell):
-        
-    
-        out, (hidden, cell) = self.lstm(inputs, (hidden, cell))
-
-
-        return out , hidden , cell 
-
-
-
-
-"""
- Linear Layers
-"""
-class Linear(nn.Module):
+class LinearBlock(nn.Module):
+    """
+    Custom Linear Layer block with regularization (Dropout and Batchnorm) and Activation function 
+    """
     def __init__ (self, in_features, out_features, dropout=True, dropout_rate=0.2, batchnorm=True, activation=True):
+        
         super().__init__()
 
-        self.mlp = nn.Linear(in_features = in_features,out_features = out_features)
-        self.activation = nn.LeakyReLU(0.2)
-        #self.activation = nn.LeaReLU()
-        self.batchnorm = nn.BatchNorm1d(out_features)
-        self.do_dropout = dropout
-        self.do_batchnorm = batchnorm
-        self.do_activation = activation
-        self.dropout   = nn.Dropout(dropout_rate)
+        self.mlp = nn.Linear(in_features = in_features,out_features = out_features) # Linear Layer 
+        self.activation = nn.LeakyReLU(0.2) # activation function  layer 
+        self.batchnorm = nn.BatchNorm1d(out_features) # Batch Normalization 1D layer 
+        self.do_dropout = dropout # perform dropout 
+        self.do_batchnorm = batchnorm # perform batchnorm
+        self.do_activation = activation #  perform  activation 
+        self.dropout   = nn.Dropout(dropout_rate) # Dropout rate 
 
     def forward(self, x):
+        """
+        forward propagation of this layer 
+        """
 
         outs = self.mlp(x)
-        if self.do_activation:
 
-            outs = self.activation(outs)
 
         if self.do_batchnorm:
 
             outs = self.batchnorm(outs)
+
+        if self.do_activation:
+
+            outs = self.activation(outs)
 
         if self.do_dropout:
 
@@ -208,48 +192,61 @@ class Linear(nn.Module):
         return outs
 
 
-"""
- Convolutional Layer (With batchnorm and dropout)
-"""
-class Conv_block(nn.Module):
 
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, do_dropout=False,
-                 do_batchnorm=False, dropout_rate=0.25):
+class ConvBlock(nn.Module):
+    """
+     Convolutional Layer (With batchnorm and activation)
+    """
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0):
 
         super().__init__()
 
-        self.conv_layer = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding)
+        self.conv_layer = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding),
+                                        nn.BatchNorm2d(out_channels),
+                                        )
 
         self.activation = nn.ReLU()
-        self.do_dropout = do_dropout
-        self.do_batchnorm = do_batchnorm
-        if self.do_dropout:
-
-            self.drop_layer = nn.Dropout2d(dropout_rate)
-
-        if self.do_batchnorm:
-            self.batchnorm_layer = nn.BatchNorm2d(out_channels)
 
     def forward(self, inputs):
 
         cnn_out = self.conv_layer(inputs)
         cnn_out = self.activation(cnn_out)
 
-        if self.do_batchnorm:
-            cnn_out = self.batchnorm_layer(cnn_out)
-
-        if self.do_dropout:
-            cnn_out = self.drop_layer(cnn_out)
-
         return cnn_out
 
+class ResidualBlock(nn.Module):
+    """
+        Convolutional Layers with Residual connection
+    """
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0):
+        
+        super().__init__()
+
+        self.conv_layer1 = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding),
+                                        nn.BatchNorm2d(out_channels),
+                                        )
 
 
+        self.conv_layer2 = nn.Sequential(nn.Conv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding),
+                                        nn.BatchNorm2d(out_channels),
+                                        )
+
+        self.activation = nn.ReLU()
 
 
+    def forward(self,x):
 
+        residual = x
+        # first conv layer
+        out = self.activation(self.conv_layer1(x))
+        # second conv layer
+        out = self.activation(self.conv_layer2(out))
+        # residual connection
+        out = out + residual
 
+        return  out 
 
+        
 
 
 
