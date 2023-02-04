@@ -15,8 +15,6 @@ from src.models.image2image import ResUnetGenerator
 from src.models.lstmgen import LstmGen as Lip_Gen
 from utils.wav2lip import prepare_audio, prepare_video, load_checkpoint
 from utils.utils import procrustes
-
-from utils.front import frontalize_landmarks
 import matplotlib.pyplot as plt
 
 use_cuda = torch.cuda.is_available()
@@ -68,12 +66,6 @@ class Inference():
                         reset_optimizer=True,
                         pretrain=True)
 
-
-        # frontalization_weights
-        self.front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
-
-
-    
  
     def __landmark_detection__(self,images, batch_size):
         """
@@ -108,16 +100,11 @@ class Inference():
 
             img = images[i:i+batch_size]          
             fl_batch = detector.get_landmarks_from_batch(img)
-            
-            #fl_batch = np.array(fl_batch)[:,:,:2] # take only 2D (x,y)
 
             fl_batch = np.array(fl_batch)[:,:,:] # take only 3d
             
             fl = [] 
             for idx in range(fl_batch.shape[0]):
-
-             
-                #fl_inbatch, trans_info = frontalize_landmarks(fl_batch[idx],self.front_weight)
 
                 fl_inbatch, trans_info = procrustes(fl_batch[idx])
                 fl.append(fl_inbatch)
@@ -159,10 +146,7 @@ class Inference():
 
         scale = tran['scale']
         translate = tran['translate']
-        #rotate = tran['rotate']
 
-        #rotate = np.linalg.inv(rotate)  # inverse tranformation matrix (for rotating face)
-        #fl =  np.matmul(fl, rotate)  # reverse rotation
         fl = fl *  scale # reverse scaling
         fl = fl + translate # reverse translation
         
@@ -273,7 +257,6 @@ class Inference():
 
             fl =  self.__reverse_trans_batch__(fl , trans)
 
-            np.savetxt('fl_inference.txt',fl.reshape(fl.shape[0],-1), fmt='%.4f')
             
             # plot a image of landmarks
             fl_image = self.__keypoints2landmarks__(fl)

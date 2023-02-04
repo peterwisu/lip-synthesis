@@ -9,50 +9,56 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from src.dataset.generator import Dataset
 from torch.utils import data as data_utils
-from utils.front import frontalize_landmarks
 from src.models.lstmgen import LstmGen as Generator
 from src.models.syncnet import SyncNet
 from torch.utils.tensorboard import SummaryWriter
-from utils.plot import plot_compareLip, plot_visLip, plot_comp, plot_seqlip_comp
+from utils.plot import  plot_comp, plot_lip_comparision
 from utils.wav2lip import load_checkpoint , save_checkpoint
 from utils.utils import save_logs,load_logs 
 from utils.loss  import CosineBCELoss
-
-
 
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
 
-class TrainEnd2End():
+class TrainGenerator():
     """
-    
+    ************************
+    Training Generator Model
+    ************************
     """
-    
-    
     def __init__ (self, args):
-        
-        
         # arguement and hyperparameters
         self.save_name  = args.save_name
         self.checkpoint_dir = args.checkpoint_dir
         self.checkpoint_path = args.checkpoint_path
-        self.batch_size = hparams.e2e_batch_size
+        self.batch_size = hparams.gen_batch_size
         self.global_epoch = 0
-        self.nepochs = hparams.e2e_nepochs
-        self.apply_disc = hparams.e2e_apply_disc
-        self.sync_coeff = hparams.e2e_sync_coeff
-        self.recon_coeff = hparams.e2e_recon_coeff
-        self.gen_lr = hparams.e2e_gen_lr 
-        self.disc_lr = hparams.e2e_disc_lr
-        self.pretrain = args.pretrain_syncnet
+        self.nepochs = hparams.gen_nepochs
+        self.sync_coeff = hparams.gen_sync_coeff
+        self.recon_coeff = hparams.gen_recon_coeff
+        self.gen_lr = hparams.gen_gen_lr 
+        self.disc_lr = hparams.gen_disc_lr
+        self.train_type = args.train_type
         self.pretrain_path = args.pretrain_syncnet_path
+        
+        # if not using Discriminator
+        if self.train_type == "gen":
+
+            self.recon_coeff = 1.0
+            self.sync_coeff  = 0 
+
+
 
         self.checkpoint_interval =  args.checkpoint_interval
 
+        if (self.train_type != "gen") and (self.recon_coeff + self.sync_coeff) != 1 :
+
+            raise ValueError("Sum of the loss coeff should be sum up to 1, the recon_coeff is {} and sync_coeff is {}".format(self.recon_coeff,self.sync_coeff))
+
            
-        # Tensorboard
+        # Tensorboard for log and result visualization
         self.writer = SummaryWriter("../tensorboard/{}".format(self.save_name))
         
         
@@ -75,35 +81,43 @@ class TrainEnd2End():
 
 
         """ <------------------------------SyncNet Discriminator ------------------------------------->"""
-        # load Syncnet 
-        self.syncnet = SyncNet(end2end=True).to(device=device)
-        
-        #check if using pretrain Discriminator
-        if self.pretrain:
-            print("######################")
-            print("Using Pretrain Syncnet")
+        if self.train_type != "gen":
+            # load Syncnet model
+            self.syncnet = SyncNet().to(device=device)
+            
+            #check if using pretrain Discriminator
+            if self.train_type == "pretrain":
+                print("######################")
+                print("Using Pretrain Syncnet")
+                print("######################")
 
-            self.syncnet = load_checkpoint(path=self.pretrain_path,
-                                           model=self.syncnet,
-                                           optimizer=None,
-                                           use_cuda=use_cuda,
-                                           reset_optimizer=True,
-                                           pretrain=True
-                                           )
-            self.syncnet.to(device)
-            #self.syncnet.eval()
+                self.syncnet = load_checkpoint(path=self.pretrain_path,
+                                               model=self.syncnet,
+                                               optimizer=None,
+                                               use_cuda=use_cuda,
+                                               reset_optimizer=True,
+                                               pretrain=True
+                                               )
+                self.syncnet.to(device)
+                #self.syncnet.eval()
+
+                
+                
+            else:
+
+                print("##################################################################")
+                print("Not using pretrain Syncnet and training it together with generator")
+                print("##################################################################")
+
+                self.disc_optimizer = optim.Adam([params for params in self.syncnet.parameters() if params.requires_grad], lr=self.disc_lr)
 
             
+            print("Finish loading Syncnet !!")
+        else: 
             
-        else:
-
-            print("###########################")
-            print("Not using pretrain Syncnet")
-
-            self.disc_optimizer = optim.SGD([params for params in self.syncnet.parameters() if params.requires_grad], lr=self.disc_lr)
-
-        
-        print("Finish loading Syncnet !!")
+            print("##############################################################")
+            print("Not using Discriminator(SyncNet), training only generator")
+            print("##############################################################")
 
 
 
@@ -182,7 +196,7 @@ class TrainEnd2End():
 
         
         # caculate sync loss
-        loss , acc = self.sync_loss(s,v,y) 
+        loss , _, _,_ = self.sync_loss(s,v,y) 
     
         return loss
  
@@ -202,17 +216,15 @@ class TrainEnd2End():
         
         for (con_fl, seq_mels, mel, gt_fl) in prog_bar:
             
-            con_lip = con_fl[:,:,48:,:].to(device)
-            con_face = con_fl[:,:,:48,:].to(device)
-            gt_lip = gt_fl[:,:,48:,:].to(device)
-            gt_face = gt_fl[:,:,:48,:].to(device)
+            con_lip = con_fl.to(device)
+            gt_lip = gt_fl.to(device)
             seq_mels = seq_mels.to(device)
             mel = mel.to(device)
 
 
 
             ###################### Discriminator #############################
-            if  self.global_epoch >= self.apply_disc and not self.pretrain: 
+            if  self.train_type == "end2end": 
 
                 
                 self.syncnet.train()
@@ -229,6 +241,7 @@ class TrainEnd2End():
                 disc_loss = disc_fake_loss + disc_real_loss
                 disc_loss.backward(retain_graph=True)
                 self.disc_optimizer.step()
+                
 
             else : 
 
@@ -245,9 +258,8 @@ class TrainEnd2End():
             gen_lip, _ = self.generator(seq_mels, con_lip)
 
 
-
-            if self.global_epoch >=  self.apply_disc or self.pretrain:
-
+            if  self.train_type != "gen":
+            
                 disc_gen_pred = self.syncnet(mel, gen_lip)
                 gen_disc_loss = self.__get_disc_loss__(disc_gen_pred,y=1)
 
@@ -260,7 +272,7 @@ class TrainEnd2End():
             recon_loss = self.recon_loss(gen_lip,gt_lip)          
 
 
-            if self.global_epoch >=  self.apply_disc  or self.pretrain:
+            if  self.train_type != "gen":
              
                 gen_loss  = (self.recon_coeff * recon_loss) + (self.sync_coeff * gen_disc_loss)
 
@@ -273,8 +285,9 @@ class TrainEnd2End():
             ####################################################################
 
         
-            running_recon_loss += recon_loss.item() * self.recon_coeff if self.global_epoch >= self.apply_disc or self.pretrain else recon_loss.item()
-            running_gen_disc_loss  += gen_disc_loss.item() * self.sync_coeff if self.global_epoch >= self.apply_disc  or self.pretrain else  gen_disc_loss.item()
+            running_recon_loss += recon_loss.item() * self.recon_coeff if self.train_type != "gen" else recon_loss.item()
+
+            running_gen_disc_loss  += gen_disc_loss.item() * self.sync_coeff if  self.train_type != "gen" else  gen_disc_loss.item()
             running_gen_loss += gen_loss.item()
             
             iter_inbatch+=1
@@ -283,9 +296,13 @@ class TrainEnd2End():
              
             
             
-            prog_bar.set_description("TRAIN Epochs: {} || Generator Loss : {:.5f} , Recon : {:.5f}, Sync : {:.5f} ||  Disciminator : {:.5f}".format(self.global_epoch,
+            prog_bar.set_description("TRAIN Epochs: {} || Generator Loss : {:.5f} , Recon({})({}) : {:.5f}, Sync({}) : {:.5f} || Disciminator : {:.5f}".format(
+                                                                                             self.global_epoch,
                                                                                              running_gen_loss/iter_inbatch,
+                                                                                             self.recon_coeff,
+                                                                                             self.recon_loss,
                                                                                              running_recon_loss/iter_inbatch,
+                                                                                             self.sync_coeff,
                                                                                              running_gen_disc_loss/iter_inbatch,
                                                                                              running_disc_loss/iter_inbatch))
 
@@ -311,19 +328,13 @@ class TrainEnd2End():
         with torch.no_grad():
             for (con_fl, seq_mels, mel, gt_fl) in prog_bar:
                 
-                
-                
-
-                
-                con_lip = con_fl[:,:,48:,:].to(device)
-                con_face = con_fl[:,:,:48,:].to(device)
-                gt_lip = gt_fl[:,:,48:,:].to(device)
-                gt_face = gt_fl[:,:,:48,:].to(device)
+                con_lip = con_fl.to(device)
+                gt_lip = gt_fl.to(device)
                 seq_mels = seq_mels.to(device)
                 mel = mel.to(device)
 
-                
-                if self.global_epoch >=  self.apply_disc :
+
+                if  self.train_type == "end2end": 
                 ################### Discriminator ##########################
 
                     self.syncnet.eval()
@@ -352,7 +363,7 @@ class TrainEnd2End():
                 gen_lip, _ = self.generator(seq_mels, con_lip)
 
                 
-                if self.global_epoch >=  self.apply_disc or self.pretrain:
+                if  self.train_type != "gen":
                     disc_gen_pred = self.syncnet(mel, gen_lip)
                     gen_disc_loss = self.__get_disc_loss__(disc_gen_pred,y=1)
 
@@ -367,7 +378,7 @@ class TrainEnd2End():
 
 
 
-                if self.global_epoch >=  self.apply_disc  or self.pretrain :
+                if  self.train_type != "gen":
 
                     gen_loss  = (self.recon_coeff * recon_loss) + (self.sync_coeff * gen_disc_loss)
 
@@ -377,16 +388,20 @@ class TrainEnd2End():
 
 
 
-                running_recon_loss += recon_loss.item() * self.recon_coeff if self.global_epoch >= self.apply_disc  or self.pretrain else recon_loss.item()
-                running_gen_disc_loss  += gen_disc_loss.item() * self.sync_coeff if self.global_epoch >= self.apply_disc or self.pretrain else  gen_disc_loss.item()
+                running_recon_loss += recon_loss.item() * self.recon_coeff if self.train_type != "gen" else recon_loss.item()
+                running_gen_disc_loss  += gen_disc_loss.item() * self.sync_coeff if self.train_type != "gen" else  gen_disc_loss.item()
                 running_gen_loss += gen_loss.item()
 
                 iter_inbatch+=1
                 
                 
-                prog_bar.set_description("VALI Epochs: {} || Generator Loss : {:.5f} , Recon : {:.5f}, Sync : {:.5f} || Disciminator : {:.5f}".format(self.global_epoch,
+                prog_bar.set_description("VALI Epochs : {} || Generator Loss : {:.5f} , Recon({})({}) : {:.5f}, Sync({}) : {:.5f} || Disciminator : {:.5f}".format(
+                                                                                                 self.global_epoch,
                                                                                                  running_gen_loss/iter_inbatch,
+                                                                                                 self.recon_coeff,
+                                                                                                 self.recon_loss,
                                                                                                  running_recon_loss/iter_inbatch,
+                                                                                                 self.sync_coeff,
                                                                                                  running_gen_disc_loss/iter_inbatch,
                                                                                                  running_disc_loss/iter_inbatch))
 
@@ -412,8 +427,8 @@ class TrainEnd2End():
                          com_fig, com_seq_fig):
 
 
-       # self.train_loss = np.append(self.train_loss, cur_train_loss)
-       # self.vali_loss  = np.append(self.vali_loss, cur_vali_loss)
+       #self.train_loss = np.append(self.train_loss, cur_train_loss)
+       #self.vali_loss  = np.append(self.vali_loss, cur_vali_loss)
 
        # save_logs(train_loss=self.train_loss, 
        #           vali_loss=self.vali_loss,
@@ -458,14 +473,12 @@ class TrainEnd2End():
 
             cur_vali_gen_loss , cur_vali_recon_loss  ,  cur_vali_sync_loss, cur_vali_disc_loss = self.__eval_model__()
 
-            com_fig = self.__compare_lip__()
-
-            com_seq_fig = self.__vis_seq_result__()
+            com_fig, com_seq_fig = self.__vis_lip_result__()
 
             self.__update_logs__(cur_train_gen_loss, cur_vali_gen_loss,  cur_train_recon_loss,  cur_vali_recon_loss, cur_train_sync_loss, cur_vali_sync_loss, cur_train_disc_loss, cur_vali_disc_loss, com_fig, com_seq_fig)
 
 
-            if self.global_epoch % self.checkpoint_interval == 0:
+            if (((self.global_epoch % self.checkpoint_interval == 0) or (self.global_epoch == self.nepochs-1)) or self.global_epoch == 5) and (self.global_epoch != 0):
 
                 # save checkpoint
                 save_checkpoint(self.generator, self.gen_optimizer, self.checkpoint_dir, self.global_epoch, '{}.pth'.format(self.save_name))
@@ -486,127 +499,115 @@ class TrainEnd2End():
 
         
         #self.__vis_comp_graph__()
-        print("Start training END2END")
+        print("Start training generator")
 
         self.__training_stage__()
 
-        print("Finish Trainig END2END")
+        print("Finish Trainig generator")
 
         self.writer.close()
 
 
     def __vis_comp_graph__ (self):
-
+        """
+        *******************************************************************
+        __vis_comp_graph__ : visualising computational graph on tensorboard
+        *******************************************************************
+        """
+        
+        # iterate over data loader
         data = iter(self.vali_loader)
-
+        # get the the first iteration
         (con_fl, seq_mels, _, _ ) = next(data)
-        
-        # take only lip
-        con_lip  =  con_fl[:,:,48:,:] 
-
         # computational graph visualization on tensorboard
-        self.writer.add_graph(self.generator, (seq_mels.to(device),con_lip.to(device)))
+        self.writer.add_graph(self.generator, (seq_mels.to(device),con_fl.to(device)))
 
-        del data 
+        del data  # remove data iterator
         
 
-
-    def __compare_lip__ (self):
-
-        # iterate over validation loader        
-        data = iter(self.vali_loader)
-        
-        # retrive the data in firsr iteration
-        (con_fl, seq_mels, mel, gt_fl) = next(data)
-        
-        with torch.no_grad():
-
-            self.generator.eval() 
-            con_lip = con_fl[:,:,48:,:].to(device)
-            con_face = con_fl[:,:,:48,:].to(device)
-            gt_lip = gt_fl[:,:,48:,:].to(device)
-            gt_face = gt_fl[:,:,:48,:].to(device)
-
-
-            seq_mels = seq_mels.to(device)
-            mel = mel.to(device)
-            gen_lip , _ = self.generator(seq_mels, con_lip)
- 
-            gen,ref, gt = gen_lip[0].detach().clone().cpu().numpy() ,con_lip[0].detach().clone().cpu().numpy(), gt_lip[0].detach().clone().cpu().numpy()
-            gen = gen.reshape(5,20,-1)
-            ref = ref.reshape(5,20,-1)
-            gt = gt.reshape(5,20,-1)
-            
-            
-            # plot compare figure
-            com_fig = plot_seqlip_comp(gen[0],ref[0],gt[0])
-        
-        return com_fig
     
-    def __vis_seq_result__ (self):
+    def __vis_lip_result__ (self):
+        """
+        ******************************************************
+        __vis_lip_result__ : visualising result on tensorboard
+        ******************************************************
+        """
 
         data = iter(self.vali_loader)
 
         (con_fl, seq_mels , mel , gt_fl)  = next(data)
         
-        # take only first sample from first batch
-        #con_lip , seq_mels , mel , gt_lip  =  con_lip[0] , seq_mels[0] , mel[0] , gt_lip[0]
 
         with torch.no_grad() : 
 
             self.generator.eval()
 
-            con_lip  = con_fl[:,:,48:,:].to(device)
-            con_face = con_fl[:,:,:48,:].to(device)
-            gt_lip   = gt_fl[:,:,48:,:].to(device)
-            gt_face  = gt_fl[:,:,:48,:].to(device)
+            con_lip  = con_fl.to(device)
+            gt_lip   = gt_fl.to(device)
 
             seq_mels = seq_mels.to(device)
             mel = mel.to(device)
+
+            seq_len = con_lip.size(1)
     
             gen_lip, _ = self.generator(seq_mels, con_lip)
             
-        
+            # get one sample from a batch and convert to numpy array
             gen,ref, gt = gen_lip[0].detach().clone().cpu().numpy() ,con_lip[0].detach().clone().cpu().numpy(), gt_lip[0].detach().clone().cpu().numpy()
+            # reshape to seq  
+            gen = gen.reshape(seq_len,20,-1)
+            ref = ref.reshape(seq_len,20,-1)
+            gt  = gt.reshape(seq_len,20,-1)
             
-            gen = gen.reshape(5,20,-1)
-            ref = ref.reshape(5,20,-1)
-            gt = gt.reshape(5,20,-1)
-            
+
+            # plot single lip landmark
+            single_fig = plot_lip_comparision(gen[0],ref[0],gt[0])
+            # plot sequence of lip landmark
             seq_fig = []
-            for idx in range(5):
+            for idx in range(seq_len):
                 
-                
-                vis_fig = plot_seqlip_comp(gen[idx],ref[idx],gt[idx])
+                vis_fig = plot_lip_comparision(gen[idx],ref[idx],gt[idx])
 
                 seq_fig.append(vis_fig)
     
         
-        return seq_fig
+        return single_fig, seq_fig
 
     def __vis_vdo_result__ (self):
-        
-
+        """
+        *********************************************************************
+        __vis_vdo_result__ : visualising the result of the model on inference
+        *********************************************************************
+        """
         from .inference import Inference
         import argparse
 
+        folder = "./results/training/{}/".format(self.save_name) 
+
+        if not os.path.exists(folder):
+            
+            os.mkdir(folder)
+
+        save_path = os.path.join(folder, "eval_epoch{}.mp4".format(self.global_epoch))
+        print(save_path)
+
         parser = argparse.ArgumentParser(description="File for running Inference")
 
-        parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='./checkpoints/end2end/{}.pth'.format(self.save_name))
+        parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='./checkpoints/generator/{}.pth'.format(self.save_name))
 
         parser.add_argument('--image2image_checkpoint', type=str, help="File path for Image2Image Translation model checkpoint weigths", default='./checkpoints/image2image/image2image.pth',required=False)
 
         parser.add_argument('--input_face', type=str, help="File path for input videos/images contain face",default='dummy/me.jpeg', required=False)
 
-        parser.add_argument('--input_audio', type=str, help="File path for input audio/speech as .wav files", default='./dummy/audio.mp3', required=False)
+        parser.add_argument('--input_audio', type=str, help="File path for input audio/speech as .wav files", default='./dummy/main_testing.wav', required=False)
 
         parser.add_argument('--fps', type=float, help= "Can only be specified only if using static image default(25 FPS)", default=25,required=False)
 
         parser.add_argument('--fl_detector_batchsize',  type=int , help='Batch size for landmark detection', default = 32)
 
-        parser.add_argument('--generator_batchsize', type=int, help="Batch size for Generator model", default=16)
+        parser.add_argument('--generator_batchsize', type=int, help="Batch size for Generator model", default=5)
 
-        parser.add_argument('--output_name', type=str , help="Name and path of the output file", default="training_results.mp4")
+        parser.add_argument('--output_name', type=str , help="Name and path of the output file", default=save_path)
 
         parser.add_argument('--vis_fl', type=bool, help="Visualize Facial Landmark ??", default=True)
 

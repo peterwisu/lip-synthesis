@@ -24,7 +24,6 @@ import numpy as np
 
 
 
-
 class ResUnetGenerator(nn.Module):
 
     """

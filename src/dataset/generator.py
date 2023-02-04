@@ -20,22 +20,20 @@ from glob import glob
 import torch
 import numpy as np
 import warnings
-from utils.front import frontalize_landmarks
 from utils.utils import procrustes
-from utils.plot import plot_scatter_facial_landmark
+from utils.plot import plot_scatter_facial_landmark , plot_lip_landmark
 
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 syncnet_T = 5
-syncnet_mel_step_size = 18
+syncnet_mel_step_size = 16
 
 
 class Dataset(object):
     def __init__(self, split, args):
 
         self.split = split
-        self.front_weight = np.load('./checkpoints/front/frontalization_weights.npy')
         self.all_videos = get_fl_list(args.data_root, split)
 
     def get_frame_id(self, frame):
@@ -63,17 +61,15 @@ class Dataset(object):
             # check whether is facial landmark can be frontalize or not?
             try:
 
-                #fl, _  = frontalize_landmarks(fl[:,:2],self.front_weight)
 
-                #lip = fl[48:,:]
+                #fl = fl[48:,:] # take only lip
         
                 #norm_lip, _ =   procrustes(lip) # normalize only lip
 
                 #fl[48:,:] = norm_lip # note that in the fl array containing 3d facial landamrks but lip are in normalize form 
-
                 fl ,_ =procrustes(fl)
-
-
+                fl = fl[48:,:]
+                
             except Exception as e:
                 
                 fl = None

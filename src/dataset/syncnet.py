@@ -19,7 +19,6 @@ import utils.audio as audio
 import math
 import matplotlib.pyplot as plt
 from utils.wav2lip import get_fl_list
-from utils.front import frontalize_landmarks
 from utils.utils import procrustes
 import warnings
 
@@ -27,7 +26,7 @@ import warnings
 
 
 syncnet_T = 5
-syncnet_mel_step_size = 18
+syncnet_mel_step_size = 16
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -67,30 +66,6 @@ class Dataset(torch.utils.data.Dataset):
         end_idx = start_idx + syncnet_mel_step_size
 
         return spec[start_idx:end_idx, :]
-
-
-
-            
-    def norm_lip2d(self, fl_lip, distance=None):
-      
-        if distance is None:
-        
-            distance_x =  fl_lip[6,0] - fl_lip[0,0]
-            distance_y =  fl_lip[6,1] - fl_lip[0,1]
-     
-            distance   =  math.sqrt(pow(distance_x,2)+pow(distance_y,2))
-       
-            fl_x=(fl_lip[:,0]-fl_lip[0,0])/distance
-            fl_y=(fl_lip[:,1]-fl_lip[0,1])/distance
-
-
-        else:
-        
-            fl_x=(fl_lip[:,0]-fl_lip[0,0]) / distance
-            fl_y=(fl_lip[:,1]-fl_lip[0,1]) / distance
-        
-
-        return  np.stack((fl_x,fl_y),axis=1) , distance
 
 
     # Lenght of dataset
@@ -145,41 +120,26 @@ class Dataset(torch.utils.data.Dataset):
                 continue
 
             # load  all frame of vdo
-
             window = []
-            temp_dis = 0
             all_read = True
              
-            for i, fname in enumerate(window_fnames):
+            for  fname in window_fnames:
 
-                rfl = np.loadtxt(fname)[:,:]
-                                
-               # try :
-               #     fl, _ = frontalize_landmarks(rfl,self.front_weight)
+                fl = np.loadtxt(fname)
 
-               # except Exception as e :
-               #     
-               #     all_read = False
-               # 
-               #     fl = rfl
-               #     break
-               # 
+                
+                fl,_ = procrustes(fl)
+                fl = fl[48:,:]
 
-                fl,_ = procrustes(rfl)
-                fl = fl[48:,:] #  take only lip
+                #from utils.plot import plot_scatter_facial_landmark, plot_lip_landmark
+                #plot_lip_landmark(fl)
+                
+                
             
                 if fl is None:
                     all_read = False
                     break
 
-               # if i == 0:
-
-               #     
-               #     fl, temp_dis = self.norm_lip2d(fl)
-               # 
-               # else:
-
-               #     fl, _ = self.norm_lip2d(fl,temp_dis)
 
                 window.append(fl)
 

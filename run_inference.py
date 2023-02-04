@@ -10,21 +10,21 @@ import os
 
 parser = argparse.ArgumentParser(description="File for running Inference")
 
-parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='./checkpoints/end2end/test_end2end_refactor1.pth')
+parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='./checkpoints/generator/pretrain003_mse_loss.pth')
 
 parser.add_argument('--image2image_checkpoint', type=str, help="File path for Image2Image Translation model checkpoint weigths", default='./checkpoints/image2image/image2image.pth',required=False)
 
-parser.add_argument('--input_face', type=str, help="File path for input videos/images contain face",default='dummy/00011.mp4', required=False)
+parser.add_argument('--input_face', type=str, help="File path for input videos/images contain face",default='dummy/me.jpeg', required=False)
 
-parser.add_argument('--input_audio', type=str, help="File path for input audio/speech as .wav files", default='./dummy/slience.wav', required=False)
+parser.add_argument('--input_audio', type=str, help="File path for input audio/speech as .wav files", default='./dummy/main_testing.wav', required=False)
 
 # parser.add_argument('--output_path', type=str, help="Path for saving the result", default='result.mp4', required=False)
 
 parser.add_argument('--fps', type=float, help= "Can only be specified only if using static image default(25 FPS)", default=25,required=False)
 
-parser.add_argument('--fl_detector_batchsize',  type=int , help='Batch size for landmark detection', default = 32)
+parser.add_argument('--fl_detector_batchsize',  type=int , help='Batch size for landmark detection', default = 64)
 
-parser.add_argument('--generator_batchsize', type=int, help="Batch size for Generator model", default=16)
+parser.add_argument('--generator_batchsize', type=int, help="Sequence size for Generator model", default=2) # Sequence size does matter
 
 parser.add_argument('--output_name', type=str , help="Name and path of the output file", default="results1.mp4")
 

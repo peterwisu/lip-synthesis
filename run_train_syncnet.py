@@ -1,7 +1,7 @@
 
 import argparse
 import warnings
-from src.main.syncnet import TrainSync
+from src.main.syncnet import TrainSyncNet
 import os 
 from utils.utils import str2bool
 from datetime import date 
@@ -17,7 +17,7 @@ parser.add_argument("--checkpoint_dir", help="dir to save checkpoints for SyncNe
 
 parser.add_argument('--checkpoint_path', help="Resume from checkpoints or testing a model from checkpoints", default=None)
 
-parser.add_argument('--save_name', help="name of a save", default="test_syncnet",type=str)
+parser.add_argument('--save_name', help="name of a save", default="test",type=str)
 
 parser.add_argument('--do_train' , help="Train a mode or testing a model", default='True' , type=str2bool)
 
@@ -46,7 +46,7 @@ def main():
             os.mkdir(args.checkpoint_dir)
 
 
-        model = TrainSync(args=args)
+        model = TrainSyncNet(args=args)
         model.start_training()
 
     else : 
@@ -60,7 +60,7 @@ def main():
             raise ValueError("Give path for model checkpoint does not exists")
 
 
-        model = TrainSync(args=args)
+        model = TrainSyncNet(args=args)
         model.start_testing()
 
     

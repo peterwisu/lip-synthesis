@@ -8,11 +8,24 @@ from sklearn.metrics import auc
 import cv2
 
 
-def plot_single(val, label, name):
-    
+def plot_single(value, label, name):
+    """
+    ***********************************************************
+    plot_single : Plot a single line plot for metrics (accuracy or loss)
+    ***********************************************************
+    @author: Wish Suharitdarmong
+    ------
+    inputs
+    ------
+        vali :  array containg a log value 
+    -------
+    returns
+    -------
+        figure : Single line plot figure   
+    """
     fig , (ax)  = plt.subplots(nrows=1,ncols=1)
     
-    ax.plot(val, color='r', label=label, linestyle='-')
+    ax.plot(value, color='r', label=label, linestyle='-')
     if "loss" in name.lower():
         ax.legend(loc="upper right")
     if "accuracy" in name.lower():
@@ -133,55 +146,55 @@ def plot_roc(y_pred_proba,y_gt):
      
     return dia_roc
 
+#
+#
+#def plot_compareLip(predict,gt_lip):
+#    """
+#    ************************************************************
+#    plot_compareLip : Plot comparision between the generated lip and actual lip
+#    ************************************************************
+#    @author: Wish Suharitdamrong
+#    ------
+#    inputs
+#    ------
+#        predict : predicted lip in form of torch tensor 
+#        gt_lip  : ground truht lip in form of torch tensor
+#    -------
+#    returns
+#    -------
+#        com_fig :  comparision figure
+#    """
+#    
+#
+#    # convert torch tensor into numpy array
+#    lip_pred = predict.reshape(predict.shape[0], predict.shape[1], 20, -1)[0, 0].detach().clone().cpu().numpy()
+#    fl = gt_lip.reshape(predict.shape[0], predict.shape[1], 20, -1)[0, 0].detach().clone().cpu().numpy()
+#
+#    fig, (ax) = plt.subplots(nrows=1, ncols=1)
+#
+#    # Plot Generated Lip
+#    ax.scatter(lip_pred[:, 0], lip_pred[:, 1], s=20, c='r', linewidths=2)
+#    ax.plot(lip_pred[0:7, 0], lip_pred[0:7, 1], c="tab:red", linewidth=3 , label='Generated')
+#    ax.plot(np.append(lip_pred[6:12, 0], lip_pred[0, 0]), np.append(lip_pred[6:12, 1], lip_pred[0, 1]), c="tab:red", linewidth=3)
+#    ax.plot(lip_pred[12:17, 0], lip_pred[12:17, 1], c="tab:red", linewidth=3)
+#    ax.plot(np.append(lip_pred[16:20, 0], lip_pred[12, 0]), np.append(lip_pred[16:20, 1], lip_pred[12, 1]), c="tab:red", linewidth=3)
+#
+#    # Plot Ground Truth Lip
+#    ax.scatter(fl[:, 0], fl[:, 1], s=20, c='g', linewidths=2)
+#    ax.plot(fl[0:7, 0], fl[0:7, 1], c="tab:blue", linewidth=3, label='Ground Truth')
+#    ax.plot(np.append(fl[6:12, 0], fl[0, 0]), np.append(fl[6:12, 1], fl[0, 1]), c="tab:blue", linewidth=3)
+#    ax.plot(fl[12:17, 0], fl[12:17, 1], c="tab:blue", linewidth=3)
+#    ax.plot(np.append(fl[16:20, 0], fl[12, 0]), np.append(fl[16:20, 1], fl[12, 1]), c="tab:blue", linewidth=3)
+#    ax.legend(loc="upper left")
+#    ax.invert_yaxis()
+#    com_fig = ax.get_figure()
+#    plt.close(fig)
+#
+#    return com_fig
+#
+#
 
-
-def plot_compareLip(predict,gt_lip):
-    """
-    ************************************************************
-    plot_compareLip : Plot comparision between the generated lip and actual lip
-    ************************************************************
-    @author: Wish Suharitdamrong
-    ------
-    inputs
-    ------
-        predict : predicted lip in form of torch tensor 
-        gt_lip  : ground truht lip in form of torch tensor
-    -------
-    returns
-    -------
-        com_fig :  comparision figure
-    """
-    
-
-    # convert torch tensor into numpy array
-    lip_pred = predict.reshape(predict.shape[0], predict.shape[1], 20, -1)[0, 0].detach().clone().cpu().numpy()
-    fl = gt_lip.reshape(predict.shape[0], predict.shape[1], 20, -1)[0, 0].detach().clone().cpu().numpy()
-
-    fig, (ax) = plt.subplots(nrows=1, ncols=1)
-
-    # Plot Generated Lip
-    ax.scatter(lip_pred[:, 0], lip_pred[:, 1], s=20, c='r', linewidths=2)
-    ax.plot(lip_pred[0:7, 0], lip_pred[0:7, 1], c="tab:red", linewidth=3 , label='Generated')
-    ax.plot(np.append(lip_pred[6:12, 0], lip_pred[0, 0]), np.append(lip_pred[6:12, 1], lip_pred[0, 1]), c="tab:red", linewidth=3)
-    ax.plot(lip_pred[12:17, 0], lip_pred[12:17, 1], c="tab:red", linewidth=3)
-    ax.plot(np.append(lip_pred[16:20, 0], lip_pred[12, 0]), np.append(lip_pred[16:20, 1], lip_pred[12, 1]), c="tab:red", linewidth=3)
-
-    # Plot Ground Truth Lip
-    ax.scatter(fl[:, 0], fl[:, 1], s=20, c='g', linewidths=2)
-    ax.plot(fl[0:7, 0], fl[0:7, 1], c="tab:blue", linewidth=3, label='Ground Truth')
-    ax.plot(np.append(fl[6:12, 0], fl[0, 0]), np.append(fl[6:12, 1], fl[0, 1]), c="tab:blue", linewidth=3)
-    ax.plot(fl[12:17, 0], fl[12:17, 1], c="tab:blue", linewidth=3)
-    ax.plot(np.append(fl[16:20, 0], fl[12, 0]), np.append(fl[16:20, 1], fl[12, 1]), c="tab:blue", linewidth=3)
-    ax.legend(loc="upper left")
-    ax.invert_yaxis()
-    com_fig = ax.get_figure()
-    plt.close(fig)
-
-    return com_fig
-
-
-
-def plot_visLip(fl):
+def plot_lip_landmark(fl):
     """
     ************************************************************
     plot_visLip :  Visualize lip landmark mark
@@ -198,22 +211,28 @@ def plot_visLip(fl):
     """
     
     # invert yaxis value so that the lip is wont display upside down
-    fl[:,1] = -fl[:,1]
     fig, ax = plt.subplots() 
     ax.scatter(fl[:,0],fl[:,1],s=20, c='r',linewidths=4)
     ax.plot(fl[0:7,0],fl[0:7,1], c="tab:pink", linewidth=3 )
     ax.plot(np.append(fl[6:12,0],fl[0,0]),np.append(fl[6:12,1],fl[0,1]), c="tab:pink", linewidth=3 )
     ax.plot(fl[12:17,0],fl[12:17,1], c="tab:pink", linewidth=3 )
     ax.plot(np.append(fl[16:20,0],fl[12,0]),np.append(fl[16:20,1],fl[12,1] ), c="tab:pink", linewidth=3)
-    ax.axvline(x = 1, color = 'b', linestyle='--',label = 'axvline - full height')
-
-    vis_fig = ax.get_figure()
-    plt.close(fig)
+    ax.invert_yaxis()
+    plt.show()
     
-    return vis_fig
 
 
-def plot_seqlip_comp(pred,ref,gt):
+def plot_scatter_facial_landmark(fl):
+
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.scatter(fl[:,0],fl[:,1],s=20,c='r')
+    ax.invert_yaxis()
+    fig.tight_layout()
+    plt.show()
+
+
+def plot_lip_comparision(pred,ref,gt):
     """
     ************************************************************
     plot_seqlip_comp : Visualize  gena 
@@ -274,20 +293,13 @@ def plot_seqlip_comp(pred,ref,gt):
 
     return  seqlip_fig
 
-"""
-
-This function is from ***MakeItTalk***
-
-Link: https://github.com/yzhou359/MakeItTalk
-
-"""
 
 # Visualize Facial Landmark (Whole Face)
 def vis_landmark_on_img(img, shape, linewidth=2):
 
     """
 
-    This function is from ***MakeItTalk***
+    @author: This function is originally from ***MakeItTalk***
 
     Link: https://github.com/yzhou359/MakeItTalk
 
@@ -310,18 +322,6 @@ def vis_landmark_on_img(img, shape, linewidth=2):
 
     return img
 
-def plot_scatter_facial_landmark(fl):
-
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    ax.scatter(fl[:,0],fl[:,1],s=20,c='r')
-    ax.plot(fl[0:7,0],fl[0:7,1], c="tab:pink", linewidth=3 )
-    ax.plot(np.append(fl[6:12,0],fl[0,0]),np.append(fl[6:12,1],fl[0,1]), c="tab:pink", linewidth=3 )
-    ax.plot(fl[12:17,0],fl[12:17,1], c="tab:pink", linewidth=3 )
-    ax.plot(np.append(fl[16:20,0],fl[12,0]),np.append(fl[16:20,1],fl[12,1] ), c="tab:pink", linewidth=3)
-    ax.invert_yaxis()
-    fig.tight_layout()
-    plt.show()
 
 
 

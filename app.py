@@ -13,7 +13,7 @@ def func(video,audio,check):
 
     parser = argparse.ArgumentParser(description="File for running Inference")
 
-    parser.add_argument('--generator_checkpoint', type=str ,default='./checkpoints/generator/demo_front.pth')
+    parser.add_argument('--generator_checkpoint', type=str ,default='./checkpoints/end2end/test_end2end_refactor1.pth')
 
     parser.add_argument('--image2image_checkpoint', type=str, default='./checkpoints/image2image/image2image.pth',required=False)
 
@@ -32,6 +32,9 @@ def func(video,audio,check):
     parser.add_argument('--output_name', type=str , default="results.mp4")
 
     parser.add_argument('--vis_fl', type=bool, default=check)
+
+
+    parser.add_argument('--test_img2img', type=bool, help="Testing image2image module with no lip generation" , default=False)
 
     args = parser.parse_args()
 

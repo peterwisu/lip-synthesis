@@ -117,7 +117,6 @@ def prepare_video(path,in_fps):
 
         img  = cv2.imread(path)
         img  = cv2.resize(img,(256,256),interpolation=cv2.INTER_LINEAR)
-        print(img.shape)
 
         # read images  
         all_frames = [img]

@@ -25,19 +25,19 @@ class LstmGen(nn.Module):
         
         self.au_encoder = nn.Sequential( #input (1,80,18)
                                         ConvBlock(1, 64, kernel_size=(3,3),stride=1, padding=0),
-                                        #ResidualBlock(64,64, kernel_size=(3,3),stride=1, padding=1),
+                                        ResidualBlock(64,64, kernel_size=(3,3),stride=1, padding=1),
                                         #ResidualBlock(64,64, kernel_size=(3,3),stride=1, padding=1, ),
                                         
                                         ConvBlock(64,128, kernel_size=(5,3), stride=(3,1), padding=1),
-                                        #ResidualBlock(128,128, kernel_size=(3,3), stride=(1,1), padding=1),
+                                        ResidualBlock(128,128, kernel_size=(3,3), stride=(1,1), padding=1),
                                         #ResidualBlock(128,128, kernel_size=(3,3), stride=(1,1), padding=1),
 
                                         ConvBlock(128,256, kernel_size=(5,3), stride=(3,3), padding=0),
-                                        #ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1),
+                                        ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1),
                                         #ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1),
 
                                         ConvBlock(256,256, kernel_size=(3,3), stride=(3,3), padding=1),
-                                        #ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1),
+                                        ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1),
                                         #ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1),
                                         
                                         ConvBlock(256,512, kernel_size=(3,2), stride=(1,1), padding=0),
@@ -56,7 +56,6 @@ class LstmGen(nn.Module):
         if inference:
 
             outs = []
-            print(au.shape)
 
             seq_len = au.size(0)  # for inferece batch_size and seq is the same
             # inshape (B or Seq , 80, 18)

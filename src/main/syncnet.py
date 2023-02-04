@@ -1,5 +1,5 @@
 
-from os.path import dirname, join, basename, isfile
+#from os.path import dirname, join, basename, isfile
 from tqdm import tqdm
 import torch
 from torch import nn
@@ -13,18 +13,20 @@ from torch.utils.tensorboard import SummaryWriter
 from src.models.syncnet import SyncNet
 from src.dataset.syncnet import Dataset
 from utils.wav2lip import save_checkpoint, load_checkpoint
-from utils.utils import save_logs, load_logs, get_accuracy
+from utils.utils import save_logs, load_logs
 from utils.plot import plot_comp, plot_roc, plot_cm , plot_single
-from utils.loss import ContrastiveLoss, CosineBCELoss
+from utils.loss import CosineBCELoss
 
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
-class TrainSync():
+class TrainSyncNet():
     """
-    
-    
+    *****************************************************************************
+    TrainSyncNet : Training pretrain SyncNet model (Expert LipSync Discriminator)
+    *****************************************************************************
+    @author : Wish Suharitdarmong
     """
     
     def __init__(self,args):
@@ -79,7 +81,7 @@ class TrainSync():
          
          
         # SyncNet Model 
-        self.model = SyncNet(is3D=True).to(device)
+        self.model = SyncNet().to(device)
 
         print(self.model)
         # optimizer 
@@ -127,8 +129,7 @@ class TrainSync():
             
         self.model.to(device)     
         
-        self.margin = 2.0
-        self.contrasive = ContrastiveLoss(margin=self.margin)
+        
 
         self.cosine_bce = CosineBCELoss()
     
@@ -136,8 +137,10 @@ class TrainSync():
 
     def __train_model__(self):
         """
-         
-        
+        ********************************************
+        __train_model__ : Training stage for SyncNet  
+        ********************************************
+        @author : Wish Suharitdarmong
         """
  
         running_loss = 0. 
@@ -157,11 +160,10 @@ class TrainSync():
             x = x.to(device)
             mel = mel.to(device)
             y = y.to(device)
-
+            
             a , v = self.model(mel, x)
 
-
-            loss, acc = self.cosine_bce(a,v,y)
+            loss, acc,_ ,_ = self.cosine_bce(a,v,y)
 
             loss.backward() # Backprop
             self.optimizer.step() # Gradient descent step
@@ -222,17 +224,15 @@ class TrainSync():
 
                 a, v =  self.model(mel, x)
 
-                #loss, acc , pred_label, pred_proba = self.__get_cosine_loss__(a, v, y)
+
+                loss, acc,pred_label,pred_proba = self.cosine_bce(a,v,y)
 
                 # add label and proba to a array
-                #y_pred_label = np.append(y_pred_label, pred_label)
-                #y_pred_proba = np.append(y_pred_proba, pred_proba)
-                #y_gt   = np.append(y_gt, y.clone().detach().cpu().numpy())
-
-                #loss, acc = self.contrasive(a,v,y)
+                y_pred_label = np.append(y_pred_label, pred_label)
+                y_pred_proba = np.append(y_pred_proba, pred_proba)
+                y_gt   = np.append(y_gt, y.clone().detach().cpu().numpy())
 
 
-                loss, acc = self.cosine_bce(a,v,y)
 
                 running_loss += loss.item()
                 running_acc += acc
@@ -245,18 +245,21 @@ class TrainSync():
                                                                                          ))
 
         # plot roc and cm
-        #roc_fig = plot_roc(y_pred_proba,y_gt)
-        #cm_fig =  plot_cm(y_pred_label,y_gt)
+        roc_fig = plot_roc(y_pred_proba,y_gt)
+        cm_fig =  plot_cm(y_pred_label,y_gt)
 
         avg_loss = running_loss / iter_inbatch
         avg_acc = running_acc / iter_inbatch
 
-        return avg_loss, avg_acc #, cm_fig, roc_fig
+        return avg_loss, avg_acc , cm_fig, roc_fig
     
     
-    def __update_logs__ (self, cur_train_loss, cur_train_acc, cur_vali_loss, cur_vali_acc, cm_fig=None, roc_fig=None):
+    def __update_logs__ (self, cur_train_loss, cur_train_acc, cur_vali_loss, cur_vali_acc, cm_fig, roc_fig):
         """
-        
+        *************************************
+        __update_logs__ : update training log 
+        *************************************
+        @author : Wish Suharitdarmong
         """
         
         # Logs in array
@@ -296,8 +299,8 @@ class TrainSync():
         self.writer.add_figure('Train/loss', train_loss_plot, self.global_epoch)
         self.writer.add_figure('Vali/acc' , vali_acc_plot, self.global_epoch)
         self.writer.add_figure('Vali/loss', vali_loss_plot, self.global_epoch)
-        #self.writer.add_figure("Vis/confusion_matrix", cm_fig, self.global_epoch)
-        #self.writer.add_figure("Vis/ROC_curve", roc_fig, self.global_epoch)
+        self.writer.add_figure("Vis/confusion_matrix", cm_fig, self.global_epoch)
+        self.writer.add_figure("Vis/ROC_curve", roc_fig, self.global_epoch)
         
 
 
@@ -311,9 +314,9 @@ class TrainSync():
             # train model
             cur_train_loss , cur_train_acc  = self.__train_model__()
             # validate model
-            cur_vali_loss , cur_vali_acc  = self.__eval_model__(split='val')
+            cur_vali_loss , cur_vali_acc , cm_fig, roc_fig = self.__eval_model__(split='val')
             
-            self.__update_logs__(cur_train_loss, cur_train_acc, cur_vali_loss, cur_vali_acc, cm_fig=None, roc_fig=None)
+            self.__update_logs__(cur_train_loss, cur_train_acc, cur_vali_loss, cur_vali_acc, cm_fig, roc_fig)
 
             # Save model checkpoint
             save_checkpoint(self.model, self.optimizer, self.checkpoint_dir, self.global_epoch, self.save_name)
@@ -337,20 +340,21 @@ class TrainSync():
         print("Testing dataset {}".format(len(self.test_dataset)))
 
         print("Start training SyncNet")
-
+        
         self.__training_stage__()
 
         print("Finish Trainig SyncNet")
 
-        print(" Evaluating SyncNet with Training Set")
-
-        test_loss, test_acc = self.__eval_model__(split='test')
+        print(" Evaluating SyncNet with Test Set")
+        
+        # evaluate model on test set
+        test_loss, test_acc, cm_fig, roc_fig = self.__eval_model__(split='test')
 
         print("Testing Stage")
         print("Loss : {} , Acc : {} ".format(test_loss, test_acc))
-
-        #self.writer.add_figure("Test/confusion_matrix",cm_fig,0)
-        #self.writer.add_figure("Test/ROC_curve",roc_fig,0)
+        # plot metrics for test set on tensorboard
+        self.writer.add_figure("Test/confusion_matrix",cm_fig,0)
+        self.writer.add_figure("Test/ROC_curve",roc_fig,0)
         self.writer.add_scalar("Test/loss",test_loss,0)
         self.writer.add_scalar("Test/acc",test_acc,0)
 

@@ -7,33 +7,29 @@ SyncNet version for Lip key point
 
 """
 class SyncNet(nn.Module):
-    def __init__(self, end2end = False,pretrain=False,bilstm=True, is3D=True):
+    def __init__(self,bilstm=True):
         super(SyncNet,self).__init__()
         
         self.bilstm = bilstm
         self.lip_hidden = 128
-        self.end2end = end2end
-        self.pretrain = pretrain
-        self.is3D = is3D
-
-        self.n_values = 60 if  is3D else 40 # values of landmarks 60 if it is 3D ( 20 x 3) else 2D is 40 (20 x 2)
+        self.n_values = 60 
 
         self.audio_encoder = nn.Sequential( #input (1,80,18)
                                         ConvBlock(1, 64, kernel_size=(3,3),stride=1, padding=0), # (78,16)
                                         ResidualBlock(64,64, kernel_size=(3,3),stride=1, padding=1,),
-                                        ResidualBlock(64,64, kernel_size=(3,3),stride=1, padding=1,),
+                                        #ResidualBlock(64,64, kernel_size=(3,3),stride=1, padding=1,),
                                         
                                         ConvBlock(64,128, kernel_size=(5,3), stride=(3,1), padding=1,), # (26,16)
                                         ResidualBlock(128,128, kernel_size=(3,3), stride=(1,1), padding=1,),
-                                        ResidualBlock(128,128, kernel_size=(3,3), stride=(1,1), padding=1,),
+                                        #ResidualBlock(128,128, kernel_size=(3,3), stride=(1,1), padding=1,),
 
                                         ConvBlock(128,256, kernel_size=(5,3), stride=(3,3), padding=0,), # (8,5)
                                         ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1,),
-                                        ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1,),
+                                        #ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1,),
 
                                         ConvBlock(256,512, kernel_size=(3,3), stride=(3,3), padding=1,), # (3,2)
                                         ResidualBlock(512,512, kernel_size=(3,3), stride=(1,1), padding=1,),
-                                        ResidualBlock(512,512, kernel_size=(3,3), stride=(1,1), padding=1,),
+                                        #ResidualBlock(512,512, kernel_size=(3,3), stride=(1,1), padding=1,),
                                         
                                         ConvBlock(512,1024, kernel_size=(3,2), stride=(1,1), padding=0,dropout=False), # (1,1)
                                         nn.Flatten()
@@ -67,8 +63,6 @@ class SyncNet(nn.Module):
             nn.Dropout(0.2),
             LinearBlock(1024, 512),
             LinearBlock(512, 256)
-        
-            
                 )
         
         self.audio_fc = nn.Sequential(
@@ -80,29 +74,35 @@ class SyncNet(nn.Module):
     
 
     def forward(self, audio, lip):
+        """
+        forward propagation of this layer 
+        """
         
-        # lip shape (batch,seq,40) 
-
-        if self.end2end or self.pretrain:
-            lip   =  lip.reshape(lip.size(0),5,-1)
-        #plot_scatter_facial_landmark(lip[0,0].reshape(20,-1).detach().clone().cpu().numpy())
-        #print(lip.shape)
-        #exit()
+        # lip shape (batch,seq,60) 
+        # audio shape (batch,1,80,18)
+        
+        # extract features from melspectrogram
         au = self.audio_encoder(audio)
         
         lip_seq = lip.shape[1]
         batch_size= lip.shape[0]
         lip = lip.reshape(-1,self.n_values)
-
+        
+        # extract features from landmarks
         lip = self.lip_encoder(lip)
         lip = lip.reshape(batch_size,lip_seq, -1)
+        
+        # pass extracted lip features to BiLSTM
         vis_hidden, _ =self.visual_encoder(lip)
-
+        
+        # last hidden layers of lstm
         vis_hidden = vis_hidden[:,-1,:]
-
+        
+        # embeddings
         lip = self.lip_fc(vis_hidden)
         au = self.audio_fc(au)
-
+        
+        # apply Euclidean(L2) norm
         au = nn.functional.normalize(au, p=2, dim=1)
         lip = nn.functional.normalize(lip, p=2, dim=1)
 

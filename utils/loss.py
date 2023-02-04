@@ -27,6 +27,8 @@ class ContrastiveLoss(torch.nn.Module):
         label = y.detach().clone().cpu().numpy().reshape(-1).astype(int)
         acc = np.mean([1 if p == l else 0 for p,l in zip(pred,label) ]) * 100
 
+        
+
         return loss , acc
 
 class CosineBCELoss(torch.nn.Module):
@@ -38,16 +40,21 @@ class CosineBCELoss(torch.nn.Module):
 
         
     def forward(self,x1,x2,y):
-
+        
+        # Get similarity score
         sim_score = torch.nn.functional.cosine_similarity(x1,x2)
-
+        
+        # compute BCE loss
         loss = self.bce(sim_score.unsqueeze(1),y)
-
+        
+        # get prediction 
         pred = np.array([1 if i >0.5 else 0 for i in sim_score])
+        # clone gt from tensor
         label = y.detach().clone().cpu().numpy().reshape(-1).astype(int)
+        # calculate accuracy
         acc = np.mean([1 if p == l else 0 for p,l in zip(pred,label) ]) * 100
 
-        return loss, acc
+        return loss, acc , pred, sim_score.detach().clone().cpu().numpy()
 
         
 
