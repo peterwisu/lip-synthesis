@@ -9,13 +9,17 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from src.dataset.generator import Dataset
 from torch.utils import data as data_utils
-from src.models.lstmgen import LstmGen as Generator
+#from src.models.lstmgen import LstmGen as Generator
+#from src.models.lstmattn import LstmGen as  Generator
+#from src.models.transgen import TransformerGenerator as Generator 
+
+#from src.models.ed_lstmattn import LstmGen as  Generator
 from src.models.syncnet import SyncNet
 from torch.utils.tensorboard import SummaryWriter
 from utils.plot import  plot_comp, plot_lip_comparision
 from utils.wav2lip import load_checkpoint , save_checkpoint
 from utils.utils import save_logs,load_logs 
-from utils.loss  import CosineBCELoss
+from utils.loss  import CosineBCELoss, WingLoss
 
 
 use_cuda = torch.cuda.is_available()
@@ -42,6 +46,7 @@ class TrainGenerator():
         self.disc_lr = hparams.gen_disc_lr
         self.train_type = args.train_type
         self.pretrain_path = args.pretrain_syncnet_path
+        self.model_type = args.model_type
         
         # if not using Discriminator
         if self.train_type == "gen":
@@ -122,6 +127,25 @@ class TrainGenerator():
 
 
         """<----------------------------Generator------------------------------------------->""" 
+
+        if self.model_type == "lstm":
+
+            from src.models.lstmgen import LstmGen as Generator
+
+            print("Import LSTM generator")
+            
+        elif self.model_type == "attn_lstm":
+
+            from src.models.lstmattn import LstmGen as  Generator
+
+            print("Import Attention LSTM generator")
+
+        else: 
+
+            raise ValueError("please put the valid attn_lstm")
+
+
+
          
         # load lip generator 
         self.generator  = Generator().to(device=device)
@@ -175,8 +199,13 @@ class TrainGenerator():
         self.mse_loss = nn.MSELoss()
         # L1 loss 
         self.l1_loss = nn.L1Loss()
+        # WingLoss
+        self.wing_loss = WingLoss(1,0.025)
         # chosen reconstruction loss
-        self.recon_loss = self.mse_loss
+        self.recon_loss = self.l1_loss
+
+
+        
 
         
 
@@ -592,6 +621,9 @@ class TrainGenerator():
         print(save_path)
 
         parser = argparse.ArgumentParser(description="File for running Inference")
+
+
+        parser.add_argument('--model_type', help='Type of generator model', default=self.model_type, type=str)
 
         parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='./checkpoints/generator/{}.pth'.format(self.save_name))
 

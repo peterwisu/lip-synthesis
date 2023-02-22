@@ -7,6 +7,7 @@ import os
 
 
 TRAIN_TYPE = ["pretrain","gen","end2end"]
+MODEL_TYPE = ['lstm','attn_lstm']
 
 parser = argparse.ArgumentParser(description='Code for training a lip sync generator via landmark')
 """ ---------- Dataset --------"""
@@ -15,6 +16,7 @@ parser.add_argument("--data_root", help="Root folder of the preprocessed LRS2 da
 """ --------- Generator --------"""
 parser.add_argument('--checkpoint_dir', help='Save checkpoints to this directory', default='./checkpoints/generator/', type=str)
 parser.add_argument('--checkpoint_path', help='Resume generator from this checkpoints', default=None, type=str)
+parser.add_argument('--model_type', help='Type of generator model', default='attn_lstm', type=str)
 
 """---------- SyncNet ----------"""
 
@@ -25,14 +27,19 @@ parser.add_argument('--pretrain_syncnet_path', help="Path of pretrain syncnet", 
 
 """---------- Save name --------"""
 
-parser.add_argument("--checkpoint_interval", help="Checkpoint interval and eval video", default=10, type=int)
-parser.add_argument('--save_name', help='name of a save', default="pretrain030_b32_mse_loss", type=str)
+parser.add_argument("--checkpoint_interval", help="Checkpoint interval and eval video", default=5, type=int)
+parser.add_argument('--save_name', help='name of a save', default="pretrain_attn_lstm020", type=str)
 
 
 args = parser.parse_args()
 
 
 def main():
+
+    
+    if (args.model_type  not in MODEL_TYPE):
+
+        raise ValueError("Argument --model_type mus be in {}".format(MODEL_TYPE))
 
     if (args.train_type  not in TRAIN_TYPE):
 

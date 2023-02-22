@@ -17,7 +17,7 @@ parser.add_argument("--checkpoint_dir", help="dir to save checkpoints for SyncNe
 
 parser.add_argument('--checkpoint_path', help="Resume from checkpoints or testing a model from checkpoints", default=None)
 
-parser.add_argument('--save_name', help="name of a save", default="test",type=str)
+parser.add_argument('--save_name', help="name of a save", default="test_syncnet",type=str)
 
 parser.add_argument('--do_train' , help="Train a mode or testing a model", default='True' , type=str2bool)
 

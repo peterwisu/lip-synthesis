@@ -127,7 +127,7 @@ class Dataset(torch.utils.data.Dataset):
 
                 fl = np.loadtxt(fname)
 
-                
+                #fl = fl[48:,:]                
                 fl,_ = procrustes(fl)
                 fl = fl[48:,:]
 

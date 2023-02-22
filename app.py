@@ -5,15 +5,29 @@ import os
 import argparse 
 from src.main.inference import Inference 
 
+MODEL_TYPE = ['lstm','attn_lstm']
 
-def func(video,audio,check):
+MODEL_NAME = { 'lstm_mse':('./checkpoints/generator/pretrain003_mse_loss.pth','lstm'),
+              'attention_lstm_l1' : ('./checkpoints/generator/attnLSTM_pretrain030_l1.pth','attn_lstm'),
+              'attention_lstm_mse': ('./checkpoints/generator/attnLSTM_pretrain030_mse.pth','attn_lstm')}
 
-    print(check)
+print(MODEL_NAME.keys())
+
+def func(video,audio,check,drop_down):
+
+    
+    path , model_type = MODEL_NAME[drop_down]
+
+    print(path)
+
+    print(model_type)
 
 
     parser = argparse.ArgumentParser(description="File for running Inference")
 
-    parser.add_argument('--generator_checkpoint', type=str ,default='./checkpoints/end2end/test_end2end_refactor1.pth')
+    parser.add_argument('--model_type', help='Type of generator model', default=model_type, type=str)
+
+    parser.add_argument('--generator_checkpoint', type=str ,default=path)
 
     parser.add_argument('--image2image_checkpoint', type=str, default='./checkpoints/image2image/image2image.pth',required=False)
 
@@ -33,7 +47,6 @@ def func(video,audio,check):
 
     parser.add_argument('--vis_fl', type=bool, default=check)
 
-
     parser.add_argument('--test_img2img', type=bool, help="Testing image2image module with no lip generation" , default=False)
 
     args = parser.parse_args()
@@ -41,7 +54,6 @@ def func(video,audio,check):
 
     Inference(args=args).start()
 
-    #inference.start()
 
     return './results.mp4'
 
@@ -49,14 +61,7 @@ def func(video,audio,check):
 
 def gui():
     with gr.Blocks() as video_tab:
-        
 
-        title = gr.title="Audio-Visual Lip Synthesis"
-
-        desc = gr.description="Creator :  Wish Suharitdarmong"
-
-
-        
         with gr.Row():
             
             with gr.Column():
@@ -70,13 +75,19 @@ def gui():
 
 
         with gr.Row():
+
+
+            with gr.Column():
             
-            check_box = gr.Checkbox(value=False,label="Do you want to visualize reconstructed facial landmark??")
+                check_box = gr.Checkbox(value=False,label="Do you want to visualize reconstructed facial landmark??")
+
+
+                drop_down = gr.Dropdown(list(MODEL_NAME.keys()), label="Select Model")
 
         with gr.Row():
             with gr.Column():     
 
-                inputs = [video,audio,check_box]    
+                inputs = [video,audio,check_box,drop_down]    
                 gr.Button("Sync").click(
 
                         fn=func,
@@ -89,10 +100,6 @@ def gui():
 
     with gr.Blocks() as image_tab:
 
-        
-        title = gr.title="Audio-Visual Lip Synthesis"
-
-        desc = gr.description="Creator :  Wish Suharitdarmong"
         
         with gr.Row():
             
@@ -109,12 +116,16 @@ def gui():
 
         with gr.Row():
             
-            check_box = gr.Checkbox(value=False,label="Do you want to visualize reconstructed facial landmark??")
+            with gr.Column():
+
+                check_box = gr.Checkbox(value=False,label="Do you want to visualize reconstructed facial landmark??")
+
+                drop_down = gr.Dropdown(list(MODEL_NAME.keys()), label="Select Model")
 
         with gr.Row():
             with gr.Column():     
 
-                inputs = [video,audio,check_box]    
+                inputs = [video,audio,check_box,drop_down]    
                 gr.Button("Sync").click(
 
                         fn=func,
@@ -122,10 +133,6 @@ def gui():
                         outputs=outputs
                         )
 
-    demo = gr.Interface(func, 
-                        gr.Video(), 
-                        "playable_video", 
-                        cache_examples=True)
 
 
     with gr.Blocks() as main:
@@ -140,7 +147,7 @@ def gui():
         Start typing below to see the output.
         """
         )
-        gui = gr.TabbedInterface([video_tab,image_tab,demo],['Using Video as input','Using Image as input','demo'])
+        gui = gr.TabbedInterface([video_tab,image_tab],['Using Video as input','Using Image as input'])
 
 
     main.launch()

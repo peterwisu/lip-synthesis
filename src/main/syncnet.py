@@ -11,6 +11,8 @@ from hparams import hparams
 from torch.nn import DataParallel
 from torch.utils.tensorboard import SummaryWriter
 from src.models.syncnet import SyncNet
+
+#from src.models.attn_syncnet import SyncNet
 from src.dataset.syncnet import Dataset
 from utils.wav2lip import save_checkpoint, load_checkpoint
 from utils.utils import save_logs, load_logs
@@ -83,7 +85,7 @@ class TrainSyncNet():
         # SyncNet Model 
         self.model = SyncNet().to(device)
 
-        print(self.model)
+        #print(self.model)
         # optimizer 
         self.optimizer = optim.Adam([p for p in self.model.parameters() if p.requires_grad],
                            lr=hparams.syncnet_lr,
@@ -91,6 +93,8 @@ class TrainSyncNet():
         
         # Loss/Cost/Objective function 
         self.bce_loss = nn.BCELoss()
+
+
         
         
         # load checkpoint if the path is given 

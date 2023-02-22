@@ -32,6 +32,10 @@ class ContrastiveLoss(torch.nn.Module):
         return loss , acc
 
 class CosineBCELoss(torch.nn.Module):
+    """
+    This loss was proposed by Wav2lip
+
+    """
 
     def __init__(self):
         super(CosineBCELoss, self).__init__()
@@ -56,6 +60,39 @@ class CosineBCELoss(torch.nn.Module):
 
         return loss, acc , pred, sim_score.detach().clone().cpu().numpy()
 
+class WingLoss(torch.nn.Module):
+
+
+    def __init__(self, w, eps ):
+
+        super(WingLoss,self).__init__()
+
+        self.W = w
+
+        self.E = eps 
+
+        self.C = self.W - (self.W  *  np.log(1+ self.W/self.E))
+       
+
+    def forward(self,pred,target):
+
+        diff = torch.abs(target-pred) # absolute value of differences
+
+        first   = diff[diff < self.W] #  value that fall under first condition
+
+        second  = diff[diff>= self.W] #  value that fall under second condition 
+
+        term1  = self.W * torch.log(1+ (first/self.E))
+
+        term2  = second - self.C
+
+        N = len(term1)  + len(term2)
+
+        loss = torch.sum(term1) + torch.sum(term2)
+    
+        loss = loss / N
+
+        return  loss
         
 
     

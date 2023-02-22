@@ -67,7 +67,13 @@ class Dataset(object):
                 #norm_lip, _ =   procrustes(lip) # normalize only lip
 
                 #fl[48:,:] = norm_lip # note that in the fl array containing 3d facial landamrks but lip are in normalize form 
+
+                #from utils.plot import plot_lip_landmark
+
+                #fl = fl[48:,:]
                 fl ,_ =procrustes(fl)
+
+                #plot_lip_landmark(fl)
                 fl = fl[48:,:]
                 
             except Exception as e:
