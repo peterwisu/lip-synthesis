@@ -133,8 +133,6 @@ class Dataset(torch.utils.data.Dataset):
 
                 #from utils.plot import plot_scatter_facial_landmark, plot_lip_landmark
                 #plot_lip_landmark(fl)
-                
-                
             
                 if fl is None:
                     all_read = False
@@ -166,5 +164,8 @@ class Dataset(torch.utils.data.Dataset):
             x = torch.FloatTensor(window)
 
             mel = torch.FloatTensor(mel.T).unsqueeze(0)
+            
+            
+            
 
             return x, mel, y

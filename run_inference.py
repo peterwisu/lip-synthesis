@@ -12,9 +12,9 @@ MODEL_TYPE = ['lstm','attn_lstm']
 
 parser = argparse.ArgumentParser(description="File for running Inference")
 
-parser.add_argument('--model_type', help='Type of generator model', default='attn_lstm', type=str)
+parser.add_argument('--model_type', help='Type of generator model', default='lstm', type=str)
 
-parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='./checkpoints/generator/attnLSTM_pretrain030_l1.pth')
+parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='/home/peter/Peter/audio-visual/fyp/checkpoints/generator/pretrain_lstmgen_l1.pth')
 
 parser.add_argument('--image2image_checkpoint', type=str, help="File path for Image2Image Translation model checkpoint weigths", default='./checkpoints/image2image/image2image.pth',required=False)
 
@@ -28,18 +28,22 @@ parser.add_argument('--fps', type=float, help= "Can only be specified only if us
 
 parser.add_argument('--fl_detector_batchsize',  type=int , help='Batch size for landmark detection', default = 64)
 
-parser.add_argument('--generator_batchsize', type=int, help="Batch size for Generator model", default=32) 
+parser.add_argument('--generator_batchsize', type=int, help="Batch size for Generator model", default=128) 
 
 parser.add_argument('--seq_len', type=int, help="Sequence length for Generator model", default=5) 
 
-parser.add_argument('--output_name', type=str , help="Name and path of the output file", default="results1.mp4")
+parser.add_argument('--output_name', type=str , help="Name and path of the output file", default="results3.mp4")
 
-parser.add_argument('--vis_fl', type=bool, help="Visualize Facial Landmark ??", default=True)
+parser.add_argument('--vis_fl', type=bool, help="Visualize Facial Landmark ??", default=False)
+
+parser.add_argument('--only_fl', type=bool, help="Visualize only Facial Landmark ??", default=False)
 
 parser.add_argument('--test_img2img', type=bool, help="Testing image2image module with no lip generation" , default=False)
 
-args = parser.parse_args()
 
+
+
+args = parser.parse_args()
 
 
 def main(args):
@@ -49,9 +53,22 @@ def main(args):
 
         raise ValueError("Argument --model_type mus be in {}".format(MODEL_TYPE))   
 
+    import time 
+
+
+
+    start_time = time.time()
+
     inference = Inference(args=args)
 
     inference.start()
+
+    end_time =  time.time()
+
+    duration = end_time - start_time
+
+
+    print("Time Taken {}".format(duration))
 
 
 if __name__ == "__main__":

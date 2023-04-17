@@ -1,23 +1,16 @@
 import torch
 import torch.nn as nn
-import numpy as np
 import math
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+class LstmGen(nn.Module):
 
+    def __init__ (self):
+        super(LstmGen, self).__init__()
 
-LIP_FEATURES = 40
-AU_FEAT_SIZE = 128
+        self.n_values = 60 
 
-
-class TransformerGenerator(nn.Module):
-
-    def __init__ (self, hidden_size=256, in_size=80, dropout=0, lstm_size=AU_FEAT_SIZE, num_layers=3, num_window_frames=18, bidirectional=True ):
-        super(TransformerGenerator, self).__init__()
-
-        self.fc_in_features = 128#hidden_size * 2 if bidirectional else hidden_size
-
-        
         self.au_encoder = nn.Sequential( #input (1,80,18)
                                         ConvBlock(1, 64, kernel_size=(3,3),stride=1, padding=0),
                                         ResidualBlock(64,64, kernel_size=(3,3),stride=1, padding=1),
@@ -31,36 +24,30 @@ class TransformerGenerator(nn.Module):
                                         ConvBlock(256,256, kernel_size=(3,3), stride=(3,3), padding=1),
                                         ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1),
                                         
-                                        ConvBlock(256,512, kernel_size=(3,2), stride=(1,1), padding=0),
+                                        ConvBlock(256,256, kernel_size=(3,2), stride=(1,1), padding=0),
                                     
                                         nn.Flatten()
                                         )
 
 
-        encoder_layer = nn.TransformerEncoderLayer(d_model=512,
-                                    nhead=8,
-                                    dim_feedforward=2048,
-                                    dropout=dropout,
-                                    activation='relu'
-                                    )
+        self.lstm_encoder  = Encoder(input_size=256, hidden_size=256, num_layers=4, dropout=0.25, bidirectional=True, batch_first=False)
 
-        self.trans = nn.TransformerEncoder(encoder_layer,num_layers=7)
+        self.pe = PositionalEncoding(d_model=512, dropout=0.1, max_len=5)
 
+        self.self_attn = nn.MultiheadAttention(512, num_heads=8)
 
-        self.n_values = 60
         self.feed = nn.Sequential(
-                LinearBlock(512+self.n_values, 512),
-                LinearBlock(512, 256,),
-                LinearBlock(256, 128,),  
+                LinearBlock(512+self.n_values, 256),
+                LinearBlock(256, 128),
                 LinearBlock(128, 60 , dropout=False, batchnorm=False, activation=False),
                 )
 
 
-        self.pe = PositionalEncoding(d_model=512, dropout=0.1, max_len=5)
+    def forward(self, au, lip):
+        
 
-    def forward(self, au, lip, inference=False):
-             
-        # AU input shape : (B, Seq, 1, 80 , 18) 
+
+        # AU input shape : (B, Seq, 1, 80 , 16) 
      
         #  inputs shape ( B , seq, 20 , 3)
         lip = lip.reshape(lip.size(0),lip.size(1),-1) # outshape(Seq, B , 60) 
@@ -78,25 +65,54 @@ class TransformerGenerator(nn.Module):
 
         in_feats = in_feats.reshape(seq_len,batch_size,  -1)
 
-        pos_out = self.pe(in_feats)
+        lstm_outs , hidden, cell = self.lstm_encoder(in_feats) 
 
-        trans_out = self.trans(pos_out)
+        pos_out = self.pe(lstm_outs)
 
-        trans_out = trans_out.reshape(-1,trans_out.shape[-1])
+
+        attn_out = self.self_attn(pos_out,pos_out,pos_out)[0]
+
+
+        attn_out = attn_out.reshape(-1,attn_out.shape[-1])
 
         lip = lip.reshape(-1,lip.shape[-1])
         
-        concat_input = torch.concat((trans_out,lip),dim=1)
+        concat_input = torch.concat((attn_out,lip),dim=1)
 
         pred = self.feed(concat_input)
 
         pred = pred.reshape(batch_size, seq_len, self.n_values)
 
-        return pred, lip
 
+        return pred , lip 
+
+
+class Encoder(nn.Module):
+
+    def __init__ (self, input_size, hidden_size, num_layers, dropout,bidirectional=True,batch_first=False):
+
+        super(Encoder,self).__init__()
+
+        self.lstm = nn.LSTM(
+                                input_size=input_size,
+                                hidden_size=hidden_size,
+                                num_layers=num_layers,
+                                dropout=dropout,
+                                bidirectional=bidirectional,
+                                batch_first=batch_first
+                            )
+
+    def forward(self, inputs):
+
+        out,  (hidden, cell) = self.lstm(inputs)
+
+        return out , hidden , cell 
 
 
 class PositionalEncoding(nn.Module):
+    """"
+    Positional Encoding from Pytorch website 
+    """
 
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
         super().__init__()
@@ -114,8 +130,10 @@ class PositionalEncoding(nn.Module):
         Args:
             x: Tensor, shape [seq_len, batch_size, embedding_dim]
         """
+        
         x = x + self.pe[:x.size(0)]
         return self.dropout(x)
+
 
 
 class LinearBlock(nn.Module):
@@ -212,13 +230,6 @@ class ResidualBlock(nn.Module):
         return  out 
 
         
-
-
-
-
-
-
-
 
 
 

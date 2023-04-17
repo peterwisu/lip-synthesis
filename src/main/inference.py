@@ -38,6 +38,7 @@ class Inference():
         self.fps = args.fps
         self.input_audio = args.input_audio
         self.vis_fl = args.vis_fl
+        self.only_fl = args.only_fl
         self.output_name = args.output_name
         self.test_img2img = args.test_img2img
         self.seq_len = 5#args.seq_len
@@ -54,15 +55,17 @@ class Inference():
         
         
          # Image2Image translation model
-        self.image2image = ResUnetGenerator(input_nc=6,output_nc=3,num_downs=6,use_dropout=False)
+        self.image2image = ResUnetGenerator(input_nc=6,output_nc=3,num_downs=6,use_dropout=False).to(device)
 
         # Load pretrained weights to image2image model 
-        image2image_weight = torch.load(self.image2image_ckpt)['G']
+        image2image_weight = torch.load(self.image2image_ckpt, map_location=torch.device(device))['G']
         # Since the checkpoint of model was trained using DataParallel with multiple GPU
         # It required to wrap a model with DataParallel wrapper class
-        self.image2image = DataParallel(self.image2image)
+        self.image2image = DataParallel(self.image2image).to(device)
         # assgin weight to model
         self.image2image.load_state_dict(image2image_weight)
+        
+        self.image2image = self.image2image.module # access model (remove DataParallel)
 
 
 
@@ -74,10 +77,14 @@ class Inference():
             
         elif self.model_type == "attn_lstm":
 
-            from src.models.lstmattn import LstmGen as  Lip_Gen
+            from src.models.attnlstm import LstmGen as Lip_Gen
 
             print("Import Attention LSTM generator")
+            
+        else: 
 
+            raise ValueError("please put the valid type of model")
+            
  
         
         self.generator = Lip_Gen().to(device=device)
@@ -85,7 +92,7 @@ class Inference():
         self.generator = load_checkpoint(model=self.generator,
                         path= self.generator_ckpt,
                         optimizer=None,
-                        use_cuda=True,
+                        use_cuda=use_cuda,
                         reset_optimizer=True,
                         pretrain=True)
 
@@ -110,6 +117,7 @@ class Inference():
             """
             Some times when using detector.get_landmarks_from_batch it does has some bug. Instead of returning facial landmarks (68,3) for single person in image it instead
             return (136,3) or (204,3). The first 68 point still a valid facial landamrk of that image (as I visualised). So this fuction basically removed the extra 68 point in landmarks.
+            This can cause from the image that have more than one face in the image
             """
             
             
@@ -331,7 +339,7 @@ class Inference():
         self.data = self.__data_generator__()
 
         
-        if self.vis_fl:
+        if self.vis_fl and not self.only_fl:
             writer = cv2.VideoWriter('./temp/out.mp4', cv2.VideoWriter_fourcc(*'mjpg'), self.fps, (256*3,256))
         else :
             writer = cv2.VideoWriter('./temp/out.mp4', cv2.VideoWriter_fourcc(*'mjpg'), self.fps, (256,256))
@@ -356,7 +364,7 @@ class Inference():
                 with torch.no_grad():
 
                     self.generator.eval()       
-                    out_fl,_ = self.generator(mel, lip_fl, inference=False) 
+                    out_fl,_ = self.generator(mel, lip_fl) 
                 
             
                 out_fl = out_fl.detach().cpu().numpy() # convert output to numpy array
@@ -378,32 +386,43 @@ class Inference():
             
             fl_image = fl_image.reshape(ref_frame.shape[0],ref_frame.shape[1],ref_frame.shape[2],ref_frame.shape[3],ref_frame.shape[4])
 
-                   
-            # image translation 
-            for (img_batch,ref_batch) in zip(fl_image, ref_frame):
-                
-                for img, ref in zip(img_batch, ref_batch): 
+            
+            if not self.only_fl:
+                # image translation 
+                for (img_batch,ref_batch) in zip(fl_image, ref_frame):
+                    
+                    for img, ref in zip(img_batch, ref_batch): 
 
-                    trans_in = np.concatenate((img,ref), axis=2).astype(np.float32)/255.0
-                    trans_in = trans_in.transpose((2, 0, 1))
-                    trans_in = torch.tensor(trans_in, requires_grad=False)
-                    trans_in = trans_in.reshape(-1, 6, 256, 256) 
-                    trans_in = trans_in.to(device)
-                
-                    with torch.no_grad():  
-                        self.image2image.eval() 
-                        trans_out = self.image2image(trans_in)
-                        trans_out = torch.tanh(trans_out)
+                        trans_in = np.concatenate((img,ref), axis=2).astype(np.float32)/255.0
+                        trans_in = trans_in.transpose((2, 0, 1))
+                        trans_in = torch.tensor(trans_in, requires_grad=False)
+                        trans_in = trans_in.reshape(-1, 6, 256, 256) 
+                        trans_in = trans_in.to(device)
                     
-                    trans_out = trans_out.detach().cpu().numpy().transpose((0,2,3,1)) 
-                    trans_out[trans_out<0] = 0
-                    trans_out = trans_out * 255.0
-                    
-                    if self.vis_fl: 
-                        frame = np.concatenate((ref,img,trans_out[0]),axis=1) 
-                    else :
-                        frame = trans_out[0]
-                    writer.write(frame.astype(np.uint8))
+                        with torch.no_grad():  
+                            self.image2image.eval() 
+                            trans_out = self.image2image(trans_in)
+                            trans_out = torch.tanh(trans_out)
+                        
+                        trans_out = trans_out.detach().cpu().numpy().transpose((0,2,3,1)) 
+                        trans_out[trans_out<0] = 0
+                        trans_out = trans_out * 255.0
+                        
+                        if self.vis_fl: 
+                            frame = np.concatenate((ref,img,trans_out[0]),axis=1) 
+                        else :
+                            frame = trans_out[0]
+                        writer.write(frame.astype(np.uint8))
+
+
+            if self.only_fl:
+
+                for fl_batch in fl_image:
+
+
+                    for fl in fl_batch:
+
+                        writer.write(fl.astype(np.uint8))
 
 
         # Write video and close writer

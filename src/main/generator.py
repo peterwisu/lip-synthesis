@@ -9,17 +9,12 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from src.dataset.generator import Dataset
 from torch.utils import data as data_utils
-#from src.models.lstmgen import LstmGen as Generator
-#from src.models.lstmattn import LstmGen as  Generator
-#from src.models.transgen import TransformerGenerator as Generator 
-
-#from src.models.ed_lstmattn import LstmGen as  Generator
 from src.models.syncnet import SyncNet
 from torch.utils.tensorboard import SummaryWriter
 from utils.plot import  plot_comp, plot_lip_comparision
 from utils.wav2lip import load_checkpoint , save_checkpoint
 from utils.utils import save_logs,load_logs 
-from utils.loss  import CosineBCELoss, WingLoss
+from utils.loss  import CosineBCELoss
 
 
 use_cuda = torch.cuda.is_available()
@@ -103,6 +98,11 @@ class TrainGenerator():
                                                reset_optimizer=True,
                                                pretrain=True
                                                )
+                
+                for params in  self.syncnet.parameters():
+                    
+                    params.requires_grad = False
+                    
                 self.syncnet.to(device)
                 #self.syncnet.eval()
 
@@ -135,20 +135,26 @@ class TrainGenerator():
             print("Import LSTM generator")
             
         elif self.model_type == "attn_lstm":
-
-            from src.models.lstmattn import LstmGen as  Generator
+            
+            from src.models.attnlstm import LstmGen as Generator
+            
 
             print("Import Attention LSTM generator")
 
         else: 
 
-            raise ValueError("please put the valid attn_lstm")
+            raise ValueError("please put the valid type of model")
 
+        
 
 
          
         # load lip generator 
         self.generator  = Generator().to(device=device)
+        
+        print(self.generator)
+
+        print("Number of Parameters : ", sum([params.numel() for params in self.generator.parameters() ]))
         
         self.gen_optimizer = optim.Adam([params for params in self.generator.parameters() if params.requires_grad], lr=self.gen_lr)
 
@@ -199,8 +205,6 @@ class TrainGenerator():
         self.mse_loss = nn.MSELoss()
         # L1 loss 
         self.l1_loss = nn.L1Loss()
-        # WingLoss
-        self.wing_loss = WingLoss(1,0.025)
         # chosen reconstruction loss
         self.recon_loss = self.l1_loss
 
@@ -497,8 +501,9 @@ class TrainGenerator():
         while self.global_epoch < self.nepochs:
 
 
-
-            cur_train_gen_loss , cur_train_recon_loss , cur_train_sync_loss, cur_train_disc_loss= self.__train_model__() 
+            cur_train_gen_loss , cur_train_recon_loss , cur_train_sync_loss, cur_train_disc_loss= self.__train_model__()
+            
+         
 
             cur_vali_gen_loss , cur_vali_recon_loss  ,  cur_vali_sync_loss, cur_vali_disc_loss = self.__eval_model__()
 
@@ -642,6 +647,8 @@ class TrainGenerator():
         parser.add_argument('--output_name', type=str , help="Name and path of the output file", default=save_path)
 
         parser.add_argument('--vis_fl', type=bool, help="Visualize Facial Landmark ??", default=True)
+        
+        parser.add_argument('--only_fl', type=bool, help="Visualize only Facial Landmark ??", default=False)
 
         parser.add_argument('--test_img2img', type=bool, help="Testing image2image module with no lip generation" , default=False)
 

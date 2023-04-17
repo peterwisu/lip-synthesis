@@ -79,14 +79,14 @@ hparams = HParams(
 	########### Dataset  & Dataloder  #########
 	fps = 25, 
 	num_workers =8,
-	window_size = 18,
-	window_step = 5,
+	# window_size = 18,
+	# window_step = 5,
 	########## SyncNet hyperparameters ###############
-	syncnet_batch_size = 32,
+	syncnet_batch_size = 128,
 	syncnet_lr = 1e-4,
-	syncnet_nepochs = 400,
+	syncnet_nepochs = 500,
 	######### Generator hyperparameters ################
-	gen_batch_size = 128,
+	gen_batch_size = 32,
 	gen_gen_lr = 1e-4,
 	gen_disc_lr = 1e-5, # refer to syncnet_lr for training discrimiantor together with generator ** only for adversarial training**
 	gen_nepochs = 200,

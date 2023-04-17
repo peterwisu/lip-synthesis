@@ -6,6 +6,10 @@ checkpoints/image2image/*
 checkpoints/syncnet/*
 checkpoints/end2end/*
 
+
+#old folder 
+old/*
+
 # filelist (dataset) 
 filelists/*
 

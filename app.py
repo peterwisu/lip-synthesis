@@ -7,21 +7,19 @@ from src.main.inference import Inference
 
 MODEL_TYPE = ['lstm','attn_lstm']
 
-MODEL_NAME = { 'lstm_mse':('./checkpoints/generator/pretrain003_mse_loss.pth','lstm'),
-              'attention_lstm_l1' : ('./checkpoints/generator/attnLSTM_pretrain030_l1.pth','attn_lstm'),
-              'attention_lstm_mse': ('./checkpoints/generator/attnLSTM_pretrain030_mse.pth','attn_lstm')}
+MODEL_NAME = { 'lstm':('./checkpoints/generator/benchmark/pure_lstmgen_l1.pth','lstm'),
+              'lstm_syncnet' : ('./checkpoints/generator/benchmark/pretrain_lstmgen_l1.pth','lstm'),
+              'attn_lstm_syncnet': ('./checkpoints/generator/benchmark/attn_generator_020_l1_1e_2.pth','attn_lstm')}
 
 print(MODEL_NAME.keys())
 
 def func(video,audio,check,drop_down):
 
-    
     path , model_type = MODEL_NAME[drop_down]
 
     print(path)
 
     print(model_type)
-
 
     parser = argparse.ArgumentParser(description="File for running Inference")
 
@@ -39,11 +37,14 @@ def func(video,audio,check,drop_down):
 
     parser.add_argument('--fps', type=float, default=25,required=False)
 
-    parser.add_argument('--fl_detector_batchsize',  type=int , default = 32)
+    parser.add_argument('--fl_detector_batchsize',  type=int , default = 2)
 
-    parser.add_argument('--generator_batchsize', type=int, default=16)
+    parser.add_argument('--generator_batchsize', type=int, default=2)
 
     parser.add_argument('--output_name', type=str , default="results.mp4")
+
+
+    parser.add_argument('--only_fl', type=bool , default=False)
 
     parser.add_argument('--vis_fl', type=bool, default=check)
 

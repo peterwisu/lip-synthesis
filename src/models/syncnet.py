@@ -3,7 +3,7 @@ import torch.nn as  nn
 from utils.plot import plot_scatter_facial_landmark 
 """
 
-SyncNet version for Lip key point
+SyncNet version for lip landmarks
 
 """
 class SyncNet(nn.Module):
@@ -13,43 +13,37 @@ class SyncNet(nn.Module):
         self.bilstm = bilstm
         self.lip_hidden = 128
         self.n_values = 60 
-
+        
         self.audio_encoder = nn.Sequential( #input (1,80,18)
                                         ConvBlock(1, 64, kernel_size=(3,3),stride=1, padding=0), # (78,16)
                                         ResidualBlock(64,64, kernel_size=(3,3),stride=1, padding=1,),
-                                        #ResidualBlock(64,64, kernel_size=(3,3),stride=1, padding=1,),
+                                        ResidualBlock(64,64, kernel_size=(3,3),stride=1, padding=1,),
                                         
                                         ConvBlock(64,128, kernel_size=(5,3), stride=(3,1), padding=1,), # (26,16)
                                         ResidualBlock(128,128, kernel_size=(3,3), stride=(1,1), padding=1,),
-                                        #ResidualBlock(128,128, kernel_size=(3,3), stride=(1,1), padding=1,),
+                                        ResidualBlock(128,128, kernel_size=(3,3), stride=(1,1), padding=1,),
 
                                         ConvBlock(128,256, kernel_size=(5,3), stride=(3,3), padding=0,), # (8,5)
                                         ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1,),
-                                        #ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1,),
+                                        ResidualBlock(256,256, kernel_size=(3,3), stride=(1,1), padding=1,),
 
                                         ConvBlock(256,512, kernel_size=(3,3), stride=(3,3), padding=1,), # (3,2)
-                                        ResidualBlock(512,512, kernel_size=(3,3), stride=(1,1), padding=1,),
-                                        #ResidualBlock(512,512, kernel_size=(3,3), stride=(1,1), padding=1,),
-                                        
-                                        ConvBlock(512,1024, kernel_size=(3,2), stride=(1,1), padding=0,dropout=False), # (1,1)
+                                        ConvBlock(512,512, kernel_size=(3,2), stride=(1,1), padding=0,), # (3,2)
                                         nn.Flatten()
                                         )
-
-
-
+        
+       
+        
         self.lip_encoder = nn.Sequential(
                                         LinearBlock(self.n_values, 512),
                                         nn.Dropout(0.2),
-                                        LinearBlock(512,1024),
-                                        nn.Dropout(0.2),
-                                        LinearBlock(1024,256),
+                                        LinearBlock(512,256),
                                         )
- 
     
 
         self.visual_encoder =nn.LSTM(input_size=256,
                                   hidden_size=self.lip_hidden,
-                                  num_layers=2,
+                                  num_layers=4, #2,
                                   batch_first=True,
                                   bidirectional=bilstm,
                                   )
@@ -57,21 +51,13 @@ class SyncNet(nn.Module):
         
         self.lip_size = 2 * self.lip_hidden if self.bilstm else self.lip_hidden  # output hidden size of lip lstm
 
+        
         self.lip_fc = nn.Sequential(
             
             LinearBlock(self.lip_size, 1024),
             nn.Dropout(0.2),
             LinearBlock(1024, 512),
-            LinearBlock(512, 256)
                 )
-        
-        self.audio_fc = nn.Sequential(
-                        LinearBlock(1024,2048),
-                        nn.Dropout(0.2),
-                        LinearBlock(2048,512),
-                        LinearBlock(512,256)
-        )          
-    
 
     def forward(self, audio, lip):
         """
@@ -83,6 +69,8 @@ class SyncNet(nn.Module):
         
         # extract features from melspectrogram
         au = self.audio_encoder(audio)
+        
+    
         
         lip_seq = lip.shape[1]
         batch_size= lip.shape[0]
@@ -100,7 +88,7 @@ class SyncNet(nn.Module):
         
         # embeddings
         lip = self.lip_fc(vis_hidden)
-        au = self.audio_fc(au)
+        #au = self.audio_fc(au)
         
         # apply Euclidean(L2) norm
         au = nn.functional.normalize(au, p=2, dim=1)

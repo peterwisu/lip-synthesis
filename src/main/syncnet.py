@@ -7,6 +7,7 @@ from torch import optim
 from torch.utils import data as data_utils
 import numpy as np
 import os
+import pandas as pd
 from hparams import hparams
 from torch.nn import DataParallel
 from torch.utils.tensorboard import SummaryWriter
@@ -91,8 +92,16 @@ class TrainSyncNet():
                            lr=hparams.syncnet_lr,
                            )
         
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer=self.optimizer,mode='min', factor=0.1, patience=10)
+        
         # Loss/Cost/Objective function 
         self.bce_loss = nn.BCELoss()
+        
+        if self.scheduler:
+            
+            print("Using LR scheduler")
+        
+        
 
 
         
@@ -201,6 +210,8 @@ class TrainSyncNet():
         if split == 'test':
 
             prog_bar = tqdm(self.test_loader)
+            vis_emb = []
+            au_emb  = [] 
 
         elif split == 'val':
 
@@ -214,6 +225,9 @@ class TrainSyncNet():
         y_pred_label = np.array([])
         y_pred_proba = np.array([])
         y_gt =  np.array([])
+
+
+        
 
 
         with torch.no_grad():
@@ -236,6 +250,13 @@ class TrainSyncNet():
                 y_pred_proba = np.append(y_pred_proba, pred_proba)
                 y_gt   = np.append(y_gt, y.clone().detach().cpu().numpy())
 
+                if split == 'test':
+                    
+                    a , v = a.clone().detach().cpu().numpy().tolist(), v.clone().detach().cpu().numpy().tolist()
+
+                    vis_emb.extend(v)
+
+                    au_emb.extend(a)
 
 
                 running_loss += loss.item()
@@ -248,6 +269,14 @@ class TrainSyncNet():
                                                                                           running_acc / iter_inbatch
                                                                                          ))
 
+        if split == 'test':
+
+            vis_emb = np.stack(vis_emb, axis=0)
+            
+            au_emb  = np.stack(au_emb, axis=0)
+        
+            
+
         # plot roc and cm
         roc_fig = plot_roc(y_pred_proba,y_gt)
         cm_fig =  plot_cm(y_pred_label,y_gt)
@@ -255,7 +284,13 @@ class TrainSyncNet():
         avg_loss = running_loss / iter_inbatch
         avg_acc = running_acc / iter_inbatch
 
-        return avg_loss, avg_acc , cm_fig, roc_fig
+        if split == 'test':
+
+            return  avg_loss, avg_acc , cm_fig, roc_fig , (vis_emb, au_emb, y_gt)
+
+        else:
+
+            return avg_loss, avg_acc , cm_fig, roc_fig
     
     
     def __update_logs__ (self, cur_train_loss, cur_train_acc, cur_vali_loss, cur_vali_acc, cm_fig, roc_fig):
@@ -320,6 +355,10 @@ class TrainSyncNet():
             # validate model
             cur_vali_loss , cur_vali_acc , cm_fig, roc_fig = self.__eval_model__(split='val')
             
+            if self.scheduler:
+                
+                self.scheduler.step(cur_vali_loss)
+            
             self.__update_logs__(cur_train_loss, cur_train_acc, cur_vali_loss, cur_vali_acc, cm_fig, roc_fig)
 
             # Save model checkpoint
@@ -352,7 +391,9 @@ class TrainSyncNet():
         print(" Evaluating SyncNet with Test Set")
         
         # evaluate model on test set
-        test_loss, test_acc, cm_fig, roc_fig = self.__eval_model__(split='test')
+        test_loss, test_acc, cm_fig, roc_fig, vec_emb = self.__eval_model__(split='test')
+
+        self.__save_vec_emb__(vec_emb[0],vec_emb[1],vec_emb[2])
 
         print("Testing Stage")
         print("Loss : {} , Acc : {} ".format(test_loss, test_acc))
@@ -363,6 +404,19 @@ class TrainSyncNet():
         self.writer.add_scalar("Test/acc",test_acc,0)
 
         self.writer.close()
+
+
+
+    def __save_vec_emb__ (self, vis_emb, au_emb, y):
+
+    
+    
+        #df = pd.DataFrame({'vis' : vis_emb.tolist(), 'au' : au_emb.tolist() ,'gt':y})
+    
+        save_logs(vis = vis_emb.tolist(),
+                  au =  au_emb.tolist(),
+                  gt = y,
+                  model_name="syncnet",savename='vec_emb_{}.csv'.format(self.save_name))
 
 
     def start_testing(self):
@@ -378,64 +432,12 @@ class TrainSyncNet():
         
         print("Testing dataset {}".format(len(self.test_dataset)))
         
-        test_loss, test_acc, cm_fig, roc_fig = self.__eval_model__(split='test')
+        test_loss, test_acc, cm_fig, roc_fig, vec_emb = self.__eval_model__(split='test')
+
+        self.__save_vec_emb__(vec_emb[0],vec_emb[1],vec_emb[2])
 
         print("Testing Stage")
         print("Loss : {} , Acc : {} ".format(test_loss, test_acc))
 
-        
 
-        
-
-        
-
-        
-
-        
-            
-        
-
-
-            
-
-
-
-
-
-
-
-
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            
-
-
-
-
-
-
-        
-        
-        
-    
-        
-        
-        
-        
-        
-        
-        
-        
+       
