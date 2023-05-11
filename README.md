@@ -34,8 +34,18 @@ conda activate fyp
 pip install -r requirement.txt
 ```
 
+## Dataset
+
+The audio-visual dataset used in this proejct are LRS2 and LRS3. LRS2 data was use for both model training and evaluation. LRS3 data was only used for model evaluation.
+
+| Dataset                                 |  Page|  
+|----------                             |:-------------:|
+| LRS2                            |  [Link](https://www.robots.ox.ac.uk/~vgg/data/lip_reading/lrs2.html)|
+| LRS3                 |    [Link](https://paperswithcode.com/dataset/lrs3-ted) | 
+
 
 ## Pre-train weights
+
 
 
 ### Generator model 
@@ -107,10 +117,13 @@ python gen_eval_vdo.py --filelist <path> --data_root <path>  --model_type <type_
 ```
 
 
+
+
 # Acknowledgement 
 
 
 The code base of this project was inspired from [Wav2Lip](https://github.com/Rudrabha/Wav2Lip) and [MakeItTalk](https://github.com/yzhou359/MakeItTalk). I would like to thanks author of both project for making code implementation of their amazing work available online. 
+
 
 
 
