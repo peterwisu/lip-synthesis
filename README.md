@@ -30,15 +30,12 @@ conda activate fyp
 
 
 ```bash
-# Use pip to install require pakages
+# Use pip to install require packages
 pip install -r requirement.txt
 ```
 
 
-
-
 ## Pre-train weights
-
 
 
 ### Generator model 
@@ -56,7 +53,7 @@ Download weights for Landmark-based SyncNet model [Download Link](https://drive.
 
 ### Image-to-Image Translation
 
-Pre-trained weight for Image2Image Translation model can be download from MakeItTalk repository on their pre-trained models section [Repo Link](https://github.com/yzhou359/MakeItTalk)
+Pre-trained weight for Image2Image Translation model can be download from MakeItTalk repository on their pre-trained models section [Repo Link](https://github.com/yzhou359/MakeItTalk).
 
 ### Directory
 ```bash
@@ -100,15 +97,20 @@ python run_train_syncnet.py --data_root preprocessed_lrs2_landmark/ --checkpoint
 
 ## Generate video for evaluation & benchmark from LRS2 and LRS3
 
+This project used data from LRS2 and LRS3 dataset for quantitative evaluation, the list of evaluation data is provide from [Wav2Lip](https://github.com/Rudrabha/Wav2Lip). The filelist(video and audio data used for evaluation) and details about Lip Sync benchmark is available in their repository [Here](https://github.com/Rudrabha/Wav2Lip). 
+
+### Generate evaluation from filelist
 ```
 cd evaluation
-
-python gen_eval_vdo.py 
+# generate evaluation videos
+python gen_eval_vdo.py --filelist <path> --data_root <path>  --model_type <type_of_model> --result_dir <save_path> --generator_checkpoint <gen_ckpt> --image2image_checkpoint <image2image_checkpoint>
 ```
-
-
 
 
 # Acknowledgement 
 
-coming soon!
+
+The code base of this project was inspired from [Wav2Lip](https://github.com/Rudrabha/Wav2Lip) and [MakeItTalk](https://github.com/yzhou359/MakeItTalk). I would like to thanks author of both project for making code implementation of their amazing work available online. 
+
+
+

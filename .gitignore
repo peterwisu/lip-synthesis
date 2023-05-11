@@ -13,6 +13,12 @@ old/*
 # filelist (dataset) 
 filelists/*.txt
 
+#eval 
+evaluation/temp/temp.wav
+evaluation/test_filelists/*
+
+
+
 # results
 results/*
 temp/*
