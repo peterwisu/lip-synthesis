@@ -107,7 +107,7 @@ python run_train_syncnet.py --data_root preprocessed_lrs2_landmark/ --checkpoint
 
 ## Generate video for evaluation & benchmark from LRS2 and LRS3
 
-This project used data from LRS2 and LRS3 dataset for quantitative evaluation, the list of evaluation data is provide from [Wav2Lip](https://github.com/Rudrabha/Wav2Lip). The filelist(video and audio data used for evaluation) and details about Lip Sync benchmark is available in their repository [Here](https://github.com/Rudrabha/Wav2Lip). 
+This project used data from LRS2 and LRS3 dataset for quantitative evaluation, the list of evaluation data is provide from [Wav2Lip](https://github.com/Rudrabha/Wav2Lip). The filelist(video and audio data used for evaluation) and details about Lip Sync benchmark are available in their repository [Here](https://github.com/Rudrabha/Wav2Lip). 
 
 ### Generate evaluation from filelist
 ```
