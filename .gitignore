@@ -11,7 +11,7 @@ checkpoints/end2end/*
 old/*
 
 # filelist (dataset) 
-filelists/*
+filelists/*.txt
 
 # results
 results/*

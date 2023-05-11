@@ -31,9 +31,9 @@ print('Running Preprocess FL ')
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--ngpu', help='Number of GPUs across which to run in parallel', default=1, type=int)
-parser.add_argument('--batch_size', help='Single GPU Face detection batch size', default=32, type=int)
+parser.add_argument('--batch_size', help='Single GPU Face detection batch size', default=16, type=int)
 parser.add_argument("--data_root", help="Root folder of the LRS2 dataset" , default="/media/peter/peterwish/dataset/lrs2_v1/mvlrs_v1/main/")
-parser.add_argument("--preprocessed_root", help="Root folder of the preprocessed dataset", default="../lrs2_main_fl_256_full_face_prepro/")
+parser.add_argument("--preprocessed_root", help="Root folder of the preprocessed dataset", default="../lrs2_test/")
 
 args = parser.parse_args()
 
@@ -49,19 +49,21 @@ template = 'ffmpeg -loglevel panic -y -i {} -strict -2 {}'
 
 
 
+def detect_bug_fl_batch(fls):
 
-        
-def visualize_landmark(fl, path):
+    for i in range(len(fls)):
 
-    fl[:, 1] = -fl[:, 1]
-    fig = plt.figure()
+        if len(fls[i]) > 68:
 
-    ax = fig.add_subplot()
-    ax.scatter(fl[:, 0], fl[:, 1], s=20, c='r', linewidths=4)
-    fig.tight_layout()
+            bug = fls[i]
 
-    fig.savefig(path)
-    plt.close(fig)
+            fl = bug[:68]
+
+            fls[i] = fl
+
+    return fls
+
+    
 
 
 def process_video_file(vfile, args, gpu_id):
@@ -86,45 +88,29 @@ def process_video_file(vfile, args, gpu_id):
     batches = [frames[i:i + args.batch_size] for i in range(0, len(frames), args.batch_size)]
     i = -1
     
-    for fb in batches:
-
-        # convert to numpy array 
-        images = np.array(fb)
+    for batch in batches:
         
-        for j, img in enumerate(images):
-            i += 1            
-            try :
-                # Detect 3D facial landmark from image 
-                detected = fa[gpu_id].get_landmarks(img)[0]
-                fl = np.array(detected) 
+        batch = np.array(batch)
 
-            except Exception as e :
-                # since some frames does not contains faces this frame will be skip
-                print("Landmark Detection Error !! {}".format(path.join(fulldir, '{}.jpg'.format(i))))
-                print(e)
+        batch = np.transpose(batch, (0,3,1,2))
+
+        batch = torch.from_numpy(batch)
+        
+        preds = fa[gpu_id].get_landmarks_from_batch(batch)
+
+        preds = detect_bug_fl_batch(preds)
+
+        for j, fl in enumerate(preds):
+
+            i +=1
+
+            if len(fl) == 0:
+
                 continue
 
-            if fl.shape[0] >68:
-
-                print('Image fl error !! {}'.format(path.join(fulldir, '{}.jpg'.format(i))))
-                print(path.join(fulldir,'{}.jpg'.format(i)))
-                print(fl.shape)
-                print(fl)
-                continue
+            np.savetxt(path.join(fulldir,'{}.txt'.format(i)),fl ,fmt='%.4f')
 
             
-
-            try:
-                # save keypoints of a landmarks 
-                np.savetxt(path.join(fulldir,'{}.txt'.format(i)),fl ,fmt='%.4f')
-                # visualizing detect landmark
-                #visualize_landmark(fl,path.join(fulldir,"{}.png".format(i)))
-
-            except ValueError as e :
-                print("Landmark not save!!!!")
-                print(e)
-                print(path.join(fulldir, '{}.jpg'.format(i)))
-
 
 def process_audio_file(vfile, args):
     vidname = os.path.basename(vfile).split('.')[0]

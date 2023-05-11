@@ -12,9 +12,9 @@ MODEL_TYPE = ['lstm','attn_lstm']
 
 parser = argparse.ArgumentParser(description="File for running Inference")
 
-parser.add_argument('--model_type', help='Type of generator model', default='lstm', type=str)
+parser.add_argument('--model_type', help='Type of generator model', default='attn_lstm', type=str)
 
-parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='/home/peter/Peter/audio-visual/fyp/checkpoints/generator/pretrain_lstmgen_l1.pth')
+parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='/home/peter/Peter/audio-visual/fyp/checkpoints/generator/benchmark/attn_generator_020_l1_1e_2.pth')
 
 parser.add_argument('--image2image_checkpoint', type=str, help="File path for Image2Image Translation model checkpoint weigths", default='./checkpoints/image2image/image2image.pth',required=False)
 
@@ -28,7 +28,7 @@ parser.add_argument('--fps', type=float, help= "Can only be specified only if us
 
 parser.add_argument('--fl_detector_batchsize',  type=int , help='Batch size for landmark detection', default = 64)
 
-parser.add_argument('--generator_batchsize', type=int, help="Batch size for Generator model", default=128) 
+parser.add_argument('--generator_batchsize', type=int, help="Batch size for Generator model", default=2) 
 
 parser.add_argument('--seq_len', type=int, help="Sequence length for Generator model", default=5) 
 

@@ -44,7 +44,7 @@ class TrainGenerator():
         self.model_type = args.model_type
         
         # if not using Discriminator
-        if self.train_type == "gen":
+        if self.train_type == "normal":
 
             self.recon_coeff = 1.0
             self.sync_coeff  = 0 
@@ -53,7 +53,7 @@ class TrainGenerator():
 
         self.checkpoint_interval =  args.checkpoint_interval
 
-        if (self.train_type != "gen") and (self.recon_coeff + self.sync_coeff) != 1 :
+        if (self.train_type != "normal") and (self.recon_coeff + self.sync_coeff) != 1 :
 
             raise ValueError("Sum of the loss coeff should be sum up to 1, the recon_coeff is {} and sync_coeff is {}".format(self.recon_coeff,self.sync_coeff))
 
@@ -81,7 +81,7 @@ class TrainGenerator():
 
 
         """ <------------------------------SyncNet Discriminator ------------------------------------->"""
-        if self.train_type != "gen":
+        if self.train_type != "normal":
             # load Syncnet model
             self.syncnet = SyncNet().to(device=device)
             
@@ -257,7 +257,7 @@ class TrainGenerator():
 
 
             ###################### Discriminator #############################
-            if  self.train_type == "end2end": 
+            if  self.train_type == "adversarial": 
 
                 
                 self.syncnet.train()
@@ -286,12 +286,13 @@ class TrainGenerator():
 
             
             ####################### Generator ###############################
+         
             self.gen_optimizer.zero_grad()
             self.generator.train()
             gen_lip, _ = self.generator(seq_mels, con_lip)
 
 
-            if  self.train_type != "gen":
+            if  self.train_type != "normal":
             
                 disc_gen_pred = self.syncnet(mel, gen_lip)
                 gen_disc_loss = self.__get_disc_loss__(disc_gen_pred,y=1)
@@ -305,7 +306,7 @@ class TrainGenerator():
             recon_loss = self.recon_loss(gen_lip,gt_lip)          
 
 
-            if  self.train_type != "gen":
+            if  self.train_type != "normal":
              
                 gen_loss  = (self.recon_coeff * recon_loss) + (self.sync_coeff * gen_disc_loss)
 
@@ -315,6 +316,7 @@ class TrainGenerator():
 
             gen_loss.backward()
             self.gen_optimizer.step()
+        
             ####################################################################
 
         
@@ -343,7 +345,8 @@ class TrainGenerator():
         avg_recon_loss = running_recon_loss / iter_inbatch
         avg_gen_disc_loss = running_gen_disc_loss/ iter_inbatch
         avg_disc_loss = running_disc_loss/iter_inbatch
-
+        
+   
         return avg_gen_loss, avg_recon_loss, avg_gen_disc_loss, avg_disc_loss
 
 
@@ -367,7 +370,7 @@ class TrainGenerator():
                 mel = mel.to(device)
 
 
-                if  self.train_type == "end2end": 
+                if  self.train_type == "adversarial": 
                 ################### Discriminator ##########################
 
                     self.syncnet.eval()
@@ -516,6 +519,11 @@ class TrainGenerator():
 
                 # save checkpoint
                 save_checkpoint(self.generator, self.gen_optimizer, self.checkpoint_dir, self.global_epoch, '{}.pth'.format(self.save_name))
+                
+                if self.train_type == "adversarial":
+                    
+                    save_checkpoint(self.syncnet, self.disc_optimizer, self.checkpoint_dir, self.global_epoch,'disc_{}.pth'.format(self.save_name))
+                    
                 self.__vis_vdo_result__()
 
             self.global_epoch +=1

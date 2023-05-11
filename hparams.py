@@ -86,10 +86,10 @@ hparams = HParams(
 	syncnet_lr = 1e-4,
 	syncnet_nepochs = 500,
 	######### Generator hyperparameters ################
-	gen_batch_size = 32,
-	gen_gen_lr = 1e-4,
-	gen_disc_lr = 1e-5, # refer to syncnet_lr for training discrimiantor together with generator ** only for adversarial training**
-	gen_nepochs = 200,
+	gen_batch_size = 16,
+	gen_gen_lr = 1e-3,
+	gen_disc_lr = 5e-6, # refer to syncnet_lr for training discrimiantor together with generator ** only for adversarial training**
+	gen_nepochs = 100,
 	gen_recon_coeff = 0.8, # only use when trainig with pretrain or end2end
 	gen_sync_coeff = 0.2 # only use when trainig with pretrain or end2end
 

@@ -70,7 +70,8 @@ class LstmGen(nn.Module):
         pos_out = self.pe(lstm_outs)
 
 
-        attn_out = self.self_attn(pos_out,pos_out,pos_out)[0]
+        attn_out, attn_weight = self.self_attn(pos_out,pos_out,pos_out)#[0]
+        
 
 
         attn_out = attn_out.reshape(-1,attn_out.shape[-1])

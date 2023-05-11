@@ -6,7 +6,7 @@ import os
 #from utils.utils import str2bool
 
 
-TRAIN_TYPE = ["pretrain","gen","end2end"]
+TRAIN_TYPE = ["pretrain","normal","adversarial"]
 MODEL_TYPE = ['lstm','attn_lstm']
 
 parser = argparse.ArgumentParser(description='Code for training a lip sync generator via landmark')
@@ -21,14 +21,14 @@ parser.add_argument('--model_type', help='Type of generator model', default='att
 """---------- SyncNet ----------"""
 
 parser.add_argument('--train_type',
-                    help='--train_type select "pretrain" for training generator with pretrain SyncNet, "gen" for training only generator without SyncNet, and "end2end" for training generator and SyncNet together', 
+                    help='--train_type select "pretrain" for training generator with pretrain SyncNet, "normal" for training only generator without SyncNet, and "adversarial" for training generator and SyncNet together', 
                     default="pretrain", type=str)
 parser.add_argument('--pretrain_syncnet_path', help="Path of pretrain syncnet", default='/home/peter/Peter/audio-visual/fyp/checkpoints/syncnet/main_syncnet.pth')
 
 """---------- Save name --------"""
 
 parser.add_argument("--checkpoint_interval", help="Checkpoint interval and eval video", default=20, type=int)
-parser.add_argument('--save_name', help='name of a save', default="inverse_generator.pth", type=str)
+parser.add_argument('--save_name', help='name of a save', default="timing_generator.pth", type=str)
 
 
 args = parser.parse_args()
