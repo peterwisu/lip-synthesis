@@ -10,14 +10,14 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
     
 parser = argparse.ArgumentParser(description="Code for training SyncNet with the lip key points ")
 
-parser.add_argument("--data_root", help="Root for preprocessed lip keypoint dataset", default='/home/peter/Peter/audio-visual/dataset/lrs2_fl/')
+parser.add_argument("--data_root", help="Root for preprocessed lip keypoint dataset", default='None')
 
 parser.add_argument("--checkpoint_dir", help="dir to save checkpoints for SyncNet for lip keypoint", default='./checkpoints/syncnet/',
                     type=str)
 
 parser.add_argument('--checkpoint_path', help="Resume from checkpoints or testing a model from checkpoints", default=None)
 
-parser.add_argument('--save_name', help="name of a save", default="OLD_VER_syncnet",type=str)
+parser.add_argument('--save_name', help="name of a save", default="landmark_syncnet",type=str)
 
 parser.add_argument('--do_train' , help="Train a mode or testing a model", default='True' , type=str2bool)
 

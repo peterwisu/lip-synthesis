@@ -14,13 +14,13 @@ parser = argparse.ArgumentParser(description="File for running Inference")
 
 parser.add_argument('--model_type', help='Type of generator model', default='attn_lstm', type=str)
 
-parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='/home/peter/Peter/audio-visual/fyp/checkpoints/generator/benchmark/attn_generator_020_l1_1e_2.pth')
+parser.add_argument('--generator_checkpoint', type=str, help="File path for Generator model checkpoint weights" ,default='./checkpoints/generator/attn_lstmgen_syncloss.pth')
 
-parser.add_argument('--image2image_checkpoint', type=str, help="File path for Image2Image Translation model checkpoint weigths", default='./checkpoints/image2image/image2image.pth',required=False)
+parser.add_argument('--image2image_checkpoint', type=str, help="File path for Image2Image Translation model checkpoint weigths", default='./checkpoints/image2image/ckpt_116_i2i_comb.pth',required=False)
 
-parser.add_argument('--input_face', type=str, help="File path for input videos/images contain face",default='./dummy/me.jpeg', required=False)
+parser.add_argument('--input_face', type=str, help="File path for input videos/images contain face",default='./dummy/me.png', required=False)
 
-parser.add_argument('--input_audio', type=str, help="File path for input audio/speech as .wav files", default='./dummy/main_testing.wav', required=False)
+parser.add_argument('--input_audio', type=str, help="File path for input audio/speech as .wav files", default='./dummy/test_audio.mp3', required=False)
 
 # parser.add_argument('--output_path', type=str, help="Path for saving the result", default='result.mp4', required=False)
 
@@ -32,7 +32,7 @@ parser.add_argument('--generator_batchsize', type=int, help="Batch size for Gene
 
 parser.add_argument('--seq_len', type=int, help="Sequence length for Generator model", default=5) 
 
-parser.add_argument('--output_name', type=str , help="Name and path of the output file", default="results3.mp4")
+parser.add_argument('--output_name', type=str , help="Name and path of the output file", default="results.mp4")
 
 parser.add_argument('--vis_fl', type=bool, help="Visualize Facial Landmark ??", default=False)
 

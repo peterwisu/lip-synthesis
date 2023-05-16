@@ -3,6 +3,9 @@
 
 This is a code implementation for Wish Suharitdamrong's Final Year Project Year 3 BSc Computer Science at University of Surrey on the topic of Audio-Visua Lip Synthesis via intermediate landmark representation.
 
+
+![Alt Text](./dummy/face.gif)
+
 # Demo
 
 Online demonstration is available at 🤗 [HuggingFace](https://huggingface.co/spaces/peterwisu/lip_synthesis)

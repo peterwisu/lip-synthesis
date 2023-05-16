@@ -11,7 +11,7 @@ MODEL_TYPE = ['lstm','attn_lstm']
 
 parser = argparse.ArgumentParser(description='Code for training a lip sync generator via landmark')
 """ ---------- Dataset --------"""
-parser.add_argument("--data_root", help="Root folder of the preprocessed LRS2 dataset", default='/home/peter/Peter/audio-visual/dataset/lrs2_fl/', type=str)
+parser.add_argument("--data_root", help="Root folder of the preprocessed LRS2 dataset", default=None, type=str)
 
 """ --------- Generator --------"""
 parser.add_argument('--checkpoint_dir', help='Save checkpoints to this directory', default='./checkpoints/generator/', type=str)
@@ -23,12 +23,12 @@ parser.add_argument('--model_type', help='Type of generator model', default='att
 parser.add_argument('--train_type',
                     help='--train_type select "pretrain" for training generator with pretrain SyncNet, "normal" for training only generator without SyncNet, and "adversarial" for training generator and SyncNet together', 
                     default="pretrain", type=str)
-parser.add_argument('--pretrain_syncnet_path', help="Path of pretrain syncnet", default='/home/peter/Peter/audio-visual/fyp/checkpoints/syncnet/main_syncnet.pth')
+parser.add_argument('--pretrain_syncnet_path', help="Path of pretrain syncnet", default='./checkpoints/syncnet/landmark_syncnet.pth')
 
 """---------- Save name --------"""
 
 parser.add_argument("--checkpoint_interval", help="Checkpoint interval and eval video", default=20, type=int)
-parser.add_argument('--save_name', help='name of a save', default="timing_generator.pth", type=str)
+parser.add_argument('--save_name', help='name of a save', default="train_attn_generator.pth", type=str)
 
 
 args = parser.parse_args()

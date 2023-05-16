@@ -22,7 +22,7 @@ evaluation/test_filelists/*
 # results
 results/*
 temp/*
-dummy/*
+#dummy/*
 face_front/
 results.mp4 
 logs/generator/*
