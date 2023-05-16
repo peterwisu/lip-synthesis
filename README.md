@@ -5,6 +5,7 @@ This is a code implementation for Wish Suharitdamrong's Final Year Project Year 
 
 
 ![Alt Text](./dummy/face.gif)
+![Alt Text](./dummy/landmark.gif)
 
 # Demo
 
